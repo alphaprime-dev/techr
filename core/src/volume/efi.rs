@@ -1,8 +1,8 @@
 use crate::overlap::ema;
 
 pub fn efi(closes: &[f64], volumes: &[f64], period: usize) -> Vec<Option<f64>> {
-    let mut efi = vec![None; len];
     let len = closes.len();
+    let mut efi = vec![None; len];
 
     if len != volumes.len() || len < 2 {
         return efi;

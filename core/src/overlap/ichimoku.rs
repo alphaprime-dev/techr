@@ -7,7 +7,6 @@ pub fn ichimoku(
     tenkan_period: usize,
     kijun_period: usize,
     senkou_b_period: usize,
-    chikou_period: usize,
 ) -> (
     Vec<Option<f64>>, // Tenkan-sen
     Vec<Option<f64>>, // Kijun-sen
@@ -19,8 +18,8 @@ pub fn ichimoku(
     let mut tenkan = vec![None; len];
     let mut kijun = vec![None; len];
     let mut chikou = vec![None; len];
-    let mut senkou_a = vec![None; len + kijun_period];
-    let mut senkou_b = vec![None; len + kijun_period];
+    let mut senkou_a = vec![None; len + kijun_period - 1];
+    let mut senkou_b = vec![None; len + kijun_period - 1];
 
     for i in 0..len {
         if i >= tenkan_period - 1 {
@@ -33,20 +32,17 @@ pub fn ichimoku(
             let max_high = find_max(&highs[i + 1 - kijun_period..=i]);
             let min_low = find_min(&lows[i + 1 - kijun_period..=i]);
             kijun[i] = Some((max_high + min_low) / 2.0);
-        }
-
-        if i >= chikou_period {
-            chikou[i] = Some(closes[i - chikou_period]);
+            chikou[i + 1 - kijun_period] = Some(closes[i]);
         }
 
         if let (Some(t), Some(k)) = (tenkan[i], kijun[i]) {
-            senkou_a[i + kijun_period] = Some((t + k) / 2.0);
+            senkou_a[i + kijun_period - 1] = Some((t + k) / 2.0);
         }
 
         if i >= senkou_b_period - 1 {
             let max_high = find_max(&highs[i + 1 - senkou_b_period..=i]);
             let min_low = find_min(&lows[i + 1 - senkou_b_period..=i]);
-            senkou_b[i + kijun_period] = Some((max_high + min_low) / 2.0);
+            senkou_b[i + kijun_period - 1] = Some((max_high + min_low) / 2.0);
         }
     }
 
@@ -59,7 +55,6 @@ pub fn ichimoku_tenkan(
     tenkan_period: usize,
     kijun_period: usize,
     senkou_b_period: usize,
-    chikou_period: usize,
 ) -> Vec<Option<f64>> {
     ichimoku(
         highs,
@@ -68,7 +63,6 @@ pub fn ichimoku_tenkan(
         tenkan_period,
         kijun_period,
         senkou_b_period,
-        chikou_period,
     )
     .0
 }
@@ -79,7 +73,6 @@ pub fn ichimoku_kijun(
     tenkan_period: usize,
     kijun_period: usize,
     senkou_b_period: usize,
-    chikou_period: usize,
 ) -> Vec<Option<f64>> {
     ichimoku(
         highs,
@@ -88,7 +81,6 @@ pub fn ichimoku_kijun(
         tenkan_period,
         kijun_period,
         senkou_b_period,
-        chikou_period,
     )
     .1
 }
@@ -98,7 +90,6 @@ pub fn ichimoku_chikou(
     tenkan_period: usize,
     kijun_period: usize,
     senkou_b_period: usize,
-    chikou_period: usize,
 ) -> Vec<Option<f64>> {
     ichimoku(
         &vec![0.0; closes.len()],
@@ -107,7 +98,6 @@ pub fn ichimoku_chikou(
         tenkan_period,
         kijun_period,
         senkou_b_period,
-        chikou_period,
     )
     .2
 }
@@ -118,7 +108,6 @@ pub fn ichimoku_senkou_a(
     tenkan_period: usize,
     kijun_period: usize,
     senkou_b_period: usize,
-    chikou_period: usize,
 ) -> Vec<Option<f64>> {
     ichimoku(
         highs,
@@ -127,7 +116,6 @@ pub fn ichimoku_senkou_a(
         tenkan_period,
         kijun_period,
         senkou_b_period,
-        chikou_period,
     )
     .3
 }
@@ -138,7 +126,6 @@ pub fn ichimoku_senkou_b(
     tenkan_period: usize,
     kijun_period: usize,
     senkou_b_period: usize,
-    chikou_period: usize,
 ) -> Vec<Option<f64>> {
     ichimoku(
         highs,
@@ -147,7 +134,6 @@ pub fn ichimoku_senkou_b(
         tenkan_period,
         kijun_period,
         senkou_b_period,
-        chikou_period,
     )
     .4
 }
@@ -166,7 +152,7 @@ mod tests {
             let close = testutils::load_data(&format!("../data/{}.json", symbol), "c");
 
             let (tenkan, kijun, chikou, senkou_a, senkou_b) =
-                ichimoku(&high, &low, &close, 9, 26, 52, 1);
+                ichimoku(&high, &low, &close, 9, 26, 52);
 
             let expected_tenkan = testutils::load_expected::<Option<f64>>(&format!(
                 "../data/expected/ichimoku_tenkan_{}.json",
