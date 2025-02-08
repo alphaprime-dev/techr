@@ -44,26 +44,6 @@ pub fn stochf(
     (percent_k, percent_d)
 }
 
-pub fn stochf_k(
-    highs: &[f64],
-    lows: &[f64],
-    closes: &[f64],
-    period_k: usize,
-    period_d: usize,
-) -> Vec<Option<f64>> {
-    stochf(highs, lows, closes, period_k, period_d).0
-}
-
-pub fn stochf_d(
-    highs: &[f64],
-    lows: &[f64],
-    closes: &[f64],
-    period_k: usize,
-    period_d: usize,
-) -> Vec<Option<f64>> {
-    stochf(highs, lows, closes, period_k, period_d).1
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

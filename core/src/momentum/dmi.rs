@@ -42,19 +42,6 @@ pub fn dmi(
     (plus_di, minus_di)
 }
 
-pub fn dmi_plus_di(highs: &[f64], lows: &[f64], closes: &[f64], period: usize) -> Vec<Option<f64>> {
-    dmi(highs, lows, closes, period).0
-}
-
-pub fn dmi_minus_di(
-    highs: &[f64],
-    lows: &[f64],
-    closes: &[f64],
-    period: usize,
-) -> Vec<Option<f64>> {
-    dmi(highs, lows, closes, period).1
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

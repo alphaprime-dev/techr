@@ -49,14 +49,6 @@ fn bband_bands(
     (upper_band, lower_band)
 }
 
-pub fn bband_upper(data: &[f64], period: usize, multiplier: Option<f64>) -> Vec<Option<f64>> {
-    bband_bands(data, period, multiplier).0
-}
-
-pub fn bband_lower(data: &[f64], period: usize, multiplier: Option<f64>) -> Vec<Option<f64>> {
-    bband_bands(data, period, multiplier).1
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -98,46 +90,6 @@ mod tests {
             assert_eq!(
                 round_vec(lower, 8),
                 expected_lower,
-                "BBAND lower test failed for symbol {}.",
-                symbol
-            );
-        }
-    }
-
-    #[test]
-    fn test_bband_upper() {
-        let test_cases = vec!["005930", "TSLA"];
-        for symbol in test_cases {
-            let input = testutils::load_data(&format!("../data/{}.json", symbol), "c");
-            let result = bband_upper(&input, 20, None);
-            let expected = testutils::load_expected::<Option<f64>>(&format!(
-                "../data/expected/bband_upper_{}.json",
-                symbol
-            ));
-
-            assert_eq!(
-                round_vec(result, 8),
-                expected,
-                "BBAND upper test failed for symbol {}.",
-                symbol
-            );
-        }
-    }
-
-    #[test]
-    fn test_bband_lower() {
-        let test_cases = vec!["005930", "TSLA"];
-        for symbol in test_cases {
-            let input = testutils::load_data(&format!("../data/{}.json", symbol), "c");
-            let result = bband_lower(&input, 20, None);
-            let expected = testutils::load_expected::<Option<f64>>(&format!(
-                "../data/expected/bband_lower_{}.json",
-                symbol
-            ));
-
-            assert_eq!(
-                round_vec(result, 8),
-                expected,
                 "BBAND lower test failed for symbol {}.",
                 symbol
             );

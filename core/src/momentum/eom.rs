@@ -46,27 +46,6 @@ pub fn eom(
     (eom_line, signal)
 }
 
-pub fn eom_line(
-    highs: &[f64],
-    lows: &[f64],
-    volumes: &[f64],
-    period: usize,
-    scale: f64,
-) -> Vec<Option<f64>> {
-    eom(highs, lows, volumes, period, 1, scale).0
-}
-
-pub fn eom_signal(
-    highs: &[f64],
-    lows: &[f64],
-    volumes: &[f64],
-    period: usize,
-    signal_period: usize,
-    scale: f64,
-) -> Vec<Option<f64>> {
-    eom(highs, lows, volumes, period, signal_period, scale).1
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

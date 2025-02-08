@@ -6,8 +6,7 @@ pub fn macd(
     slow_period: usize,
     signal_period: usize,
 ) -> (Vec<Option<f64>>, Vec<Option<f64>>, Vec<Option<f64>>) {
-    let macd_line = macd_line(data, fast_period, slow_period);
-
+    let macd_line = calc_macd_line(data, fast_period, slow_period);
     let signal_line = calc_macd_signal(&macd_line, signal_period);
 
     // Calculate the histogram
@@ -23,7 +22,7 @@ pub fn macd(
     (macd_line, signal_line, histogram)
 }
 
-pub fn macd_line(data: &[f64], fast_period: usize, slow_period: usize) -> Vec<Option<f64>> {
+fn calc_macd_line(data: &[f64], fast_period: usize, slow_period: usize) -> Vec<Option<f64>> {
     let mut macd_line = vec![None; data.len()];
 
     if data.len() < slow_period || fast_period >= slow_period {
@@ -42,16 +41,7 @@ pub fn macd_line(data: &[f64], fast_period: usize, slow_period: usize) -> Vec<Op
     macd_line
 }
 
-pub fn macd_signal(
-    data: &[f64],
-    fast_period: usize,
-    slow_period: usize,
-    signal_period: usize,
-) -> Vec<Option<f64>> {
-    macd(data, fast_period, slow_period, signal_period).1
-}
-
-pub fn calc_macd_signal(macd_line: &[Option<f64>], signal_period: usize) -> Vec<Option<f64>> {
+fn calc_macd_signal(macd_line: &[Option<f64>], signal_period: usize) -> Vec<Option<f64>> {
     let mut signal_line: Vec<Option<f64>> = vec![None; macd_line.len()];
     let null_count = macd_line.iter().take_while(|&&x| x.is_none()).count();
     let macd_values: Vec<f64> = macd_line
@@ -68,15 +58,6 @@ pub fn calc_macd_signal(macd_line: &[Option<f64>], signal_period: usize) -> Vec<
     }
 
     signal_line
-}
-
-pub fn macd_histogram(
-    data: &[f64],
-    fast_period: usize,
-    slow_period: usize,
-    signal_period: usize,
-) -> Vec<Option<f64>> {
-    macd(data, fast_period, slow_period, signal_period).2
 }
 
 #[cfg(test)]

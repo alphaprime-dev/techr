@@ -51,24 +51,6 @@ pub fn stochrsi(
     (percent_k, percent_d)
 }
 
-pub fn stochrsi_k(
-    closes: &[f64],
-    period_rsi: usize,
-    period_k: usize,
-    period_d: usize,
-) -> Vec<Option<f64>> {
-    stochrsi(closes, period_rsi, period_k, period_d).0
-}
-
-pub fn stochrsi_d(
-    closes: &[f64],
-    period_rsi: usize,
-    period_k: usize,
-    period_d: usize,
-) -> Vec<Option<f64>> {
-    stochrsi(closes, period_rsi, period_k, period_d).1
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

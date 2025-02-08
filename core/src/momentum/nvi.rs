@@ -33,14 +33,6 @@ pub fn nvi(
     (nvi_line, signal)
 }
 
-pub fn nvi_line(closes: &[f64], volumes: &[f64]) -> Vec<Option<f64>> {
-    nvi(closes, volumes, 1).0
-}
-
-pub fn nvi_signal(closes: &[f64], volumes: &[f64], signal_period: usize) -> Vec<Option<f64>> {
-    nvi(closes, volumes, signal_period).1
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

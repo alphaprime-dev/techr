@@ -27,14 +27,6 @@ pub fn aroon(highs: &[f64], lows: &[f64], period: usize) -> (Vec<Option<f64>>, V
     (aroon_up, aroon_down)
 }
 
-pub fn aroon_up(highs: &[f64], lows: &[f64], period: usize) -> Vec<Option<f64>> {
-    aroon(highs, lows, period).0
-}
-
-pub fn aroon_down(highs: &[f64], lows: &[f64], period: usize) -> Vec<Option<f64>> {
-    aroon(highs, lows, period).1
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

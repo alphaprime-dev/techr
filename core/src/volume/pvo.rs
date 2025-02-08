@@ -6,7 +6,7 @@ pub fn pvo(
     slow_period: usize,
     signal_period: usize,
 ) -> (Vec<Option<f64>>, Vec<Option<f64>>, Vec<Option<f64>>) {
-    let pvo_line = pvo_line(data, fast_period, slow_period);
+    let pvo_line = calc_pvo_line(data, fast_period, slow_period);
     let signal_line = calc_pvo_signal(&pvo_line, signal_period);
 
     // Calculate the histogram
@@ -22,7 +22,7 @@ pub fn pvo(
     (pvo_line, signal_line, histogram)
 }
 
-pub fn pvo_line(data: &[f64], fast_period: usize, slow_period: usize) -> Vec<Option<f64>> {
+fn calc_pvo_line(data: &[f64], fast_period: usize, slow_period: usize) -> Vec<Option<f64>> {
     let mut pvo_line = vec![None; data.len()];
 
     if data.len() < slow_period || fast_period >= slow_period {
@@ -43,16 +43,7 @@ pub fn pvo_line(data: &[f64], fast_period: usize, slow_period: usize) -> Vec<Opt
     pvo_line
 }
 
-pub fn pvo_signal(
-    data: &[f64],
-    fast_period: usize,
-    slow_period: usize,
-    signal_period: usize,
-) -> Vec<Option<f64>> {
-    pvo(data, fast_period, slow_period, signal_period).1
-}
-
-pub fn calc_pvo_signal(pvo_line: &[Option<f64>], signal_period: usize) -> Vec<Option<f64>> {
+fn calc_pvo_signal(pvo_line: &[Option<f64>], signal_period: usize) -> Vec<Option<f64>> {
     let mut signal_line: Vec<Option<f64>> = vec![None; pvo_line.len()];
     let pvo_values: Vec<f64> = pvo_line.iter().filter_map(|&x| x).collect();
     let offset = pvo_line.len() - pvo_values.len();
@@ -67,16 +58,6 @@ pub fn calc_pvo_signal(pvo_line: &[Option<f64>], signal_period: usize) -> Vec<Op
 
     signal_line
 }
-
-pub fn pvo_histogram(
-    data: &[f64],
-    fast_period: usize,
-    slow_period: usize,
-    signal_period: usize,
-) -> Vec<Option<f64>> {
-    pvo(data, fast_period, slow_period, signal_period).2
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

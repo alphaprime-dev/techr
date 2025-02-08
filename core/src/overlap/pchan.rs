@@ -26,18 +26,6 @@ pub fn pchan(
     (upper, middle, lower)
 }
 
-pub fn pchan_upper(highs: &[f64], period: usize) -> Vec<Option<f64>> {
-    pchan(highs, highs, period).0
-}
-
-pub fn pchan_middle(highs: &[f64], lows: &[f64], period: usize) -> Vec<Option<f64>> {
-    pchan(highs, lows, period).1
-}
-
-pub fn pchan_lower(lows: &[f64], period: usize) -> Vec<Option<f64>> {
-    pchan(lows, lows, period).2
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -32,24 +32,6 @@ pub fn sonar(
     (sonar_line, signal_line)
 }
 
-pub fn sonar_line(
-    data: &[f64],
-    period: usize,
-    step: usize,
-    signal_period: usize,
-) -> Vec<Option<f64>> {
-    sonar(data, period, step, signal_period).0
-}
-
-pub fn sonar_signal(
-    data: &[f64],
-    period: usize,
-    step: usize,
-    signal_period: usize,
-) -> Vec<Option<f64>> {
-    sonar(data, period, step, signal_period).1
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

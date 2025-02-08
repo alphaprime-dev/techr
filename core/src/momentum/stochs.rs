@@ -50,28 +50,6 @@ pub fn stochs(
     (percent_k, percent_d)
 }
 
-pub fn stochs_k(
-    highs: &[f64],
-    lows: &[f64],
-    closes: &[f64],
-    period_k: usize,
-    period_d: usize,
-    smoothing: usize,
-) -> Vec<Option<f64>> {
-    stochs(highs, lows, closes, period_k, period_d, smoothing).0
-}
-
-pub fn stochs_d(
-    highs: &[f64],
-    lows: &[f64],
-    closes: &[f64],
-    period_k: usize,
-    period_d: usize,
-    smoothing: usize,
-) -> Vec<Option<f64>> {
-    stochs(highs, lows, closes, period_k, period_d, smoothing).1
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

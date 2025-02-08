@@ -16,7 +16,7 @@ pub fn ultosc(
     }
 
     let trs = calc_true_ranges(highs, lows, closes);
-    let buying_pressures = get_buying_pressures(closes, lows);
+    let buying_pressures = calc_buying_pressures(closes, lows);
 
     let mut long_denomi = 0.0;
     let mut long_nomi = 0.0;
@@ -64,7 +64,7 @@ pub fn ultosc(
     ultosc
 }
 
-fn get_buying_pressures(closes: &[f64], lows: &[f64]) -> Vec<f64> {
+fn calc_buying_pressures(closes: &[f64], lows: &[f64]) -> Vec<f64> {
     let len = closes.len();
     let mut buying_pressures = Vec::with_capacity(len - 1);
 

@@ -24,14 +24,6 @@ pub fn env(
     (env_upper, sma_values, env_lower)
 }
 
-pub fn env_upper(data: &[f64], period: usize, shift_percentage: f64) -> Vec<Option<f64>> {
-    env(data, period, shift_percentage).0
-}
-
-pub fn env_lower(data: &[f64], period: usize, shift_percentage: f64) -> Vec<Option<f64>> {
-    env(data, period, shift_percentage).2
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

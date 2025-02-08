@@ -5,13 +5,13 @@ pub fn obv(
     volumes: &[f64],
     signal_period: usize,
 ) -> (Vec<Option<f64>>, Vec<Option<f64>>) {
-    let obv_line = obv_line(data, volumes);
+    let obv_line = calc_obv_line(data, volumes);
     let obv_signal = obv_signal_by_obvline(&obv_line, signal_period);
 
     (obv_line, obv_signal)
 }
 
-pub fn obv_line(data: &[f64], volumes: &[f64]) -> Vec<Option<f64>> {
+fn calc_obv_line(data: &[f64], volumes: &[f64]) -> Vec<Option<f64>> {
     let mut obv = vec![None; data.len()];
 
     let len = data.len();

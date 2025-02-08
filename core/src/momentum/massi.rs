@@ -47,26 +47,6 @@ pub fn massi(
     (mass, signal)
 }
 
-pub fn massi_line(
-    highs: &[f64],
-    lows: &[f64],
-    period_ema: usize,
-    period_sum: usize,
-    period_signal: usize,
-) -> Vec<Option<f64>> {
-    massi(highs, lows, period_ema, period_sum, period_signal).0
-}
-
-pub fn massi_signal(
-    highs: &[f64],
-    lows: &[f64],
-    period_ema: usize,
-    period_sum: usize,
-    period_signal: usize,
-) -> Vec<Option<f64>> {
-    massi(highs, lows, period_ema, period_sum, period_signal).1
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
