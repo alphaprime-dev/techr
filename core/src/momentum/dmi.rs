@@ -1,4 +1,4 @@
-use crate::utils::get_true_ranges;
+use crate::{utils::calc_true_ranges, wilders_smoothing};
 
 pub fn dmi(
     highs: &[f64],
@@ -12,7 +12,7 @@ pub fn dmi(
 
     let delta_highs: Vec<f64> = highs.windows(2).map(|w| (w[1] - w[0]).max(0.0)).collect();
     let delta_lows: Vec<f64> = lows.windows(2).map(|w| (w[0] - w[1]).max(0.0)).collect();
-    let trs = get_true_ranges(highs, lows, closes);
+    let trs = calc_true_ranges(highs, lows, closes);
 
     let plus_dm: Vec<f64> = delta_highs
         .iter()
@@ -40,18 +40,6 @@ pub fn dmi(
     }
 
     (plus_di, minus_di)
-}
-
-fn wilders_smoothing(data: &[f64], period: usize) -> Vec<f64> {
-    let mut result = Vec::with_capacity(data.len() - period + 1);
-    let mut partial_sum: f64 = data.iter().take(period - 1).sum();
-
-    for i in period - 1..data.len() {
-        partial_sum = partial_sum - (partial_sum / period as f64) + data[i];
-        result.push(partial_sum);
-    }
-
-    result
 }
 
 pub fn dmi_plus_di(highs: &[f64], lows: &[f64], closes: &[f64], period: usize) -> Vec<Option<f64>> {

@@ -1,4 +1,4 @@
-use crate::utils::get_true_ranges;
+use crate::utils::calc_true_ranges;
 
 pub fn ultosc(
     highs: &[f64],
@@ -15,7 +15,7 @@ pub fn ultosc(
         return ultosc;
     }
 
-    let trs = get_true_ranges(highs, lows, closes);
+    let trs = calc_true_ranges(highs, lows, closes);
     let buying_pressures = get_buying_pressures(closes, lows);
 
     let mut long_denomi = 0.0;

@@ -36,7 +36,7 @@ pub fn calc_clv(high: f64, low: f64, close: f64) -> f64 {
     }
 }
 
-pub fn get_true_ranges(highs: &[f64], lows: &[f64], closes: &[f64]) -> Vec<f64> {
+pub fn calc_true_ranges(highs: &[f64], lows: &[f64], closes: &[f64]) -> Vec<f64> {
     let mut result = Vec::with_capacity(highs.len() - 1);
 
     for i in 1..highs.len() {
@@ -53,6 +53,18 @@ fn calc_tr(high: f64, low: f64, prev_close: f64) -> f64 {
     let th = high.max(prev_close);
     let tl = low.min(prev_close);
     th - tl
+}
+
+pub fn wilders_smoothing(data: &[f64], period: usize) -> Vec<f64> {
+    let mut result = Vec::with_capacity(data.len() - period + 1);
+    let mut partial_sum: f64 = data.iter().take(period - 1).sum();
+
+    for i in period - 1..data.len() {
+        partial_sum = partial_sum - (partial_sum / period as f64) + data[i];
+        result.push(partial_sum);
+    }
+
+    result
 }
 
 #[cfg(test)]
@@ -134,7 +146,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_true_ranges() {
+    fn test_calc_true_ranges() {
         let highs = vec![
             10.0, 12.0, 11.5, 13.0, 14.5, 13.5, 15.0, 16.0, 15.5, 17.0, 18.0, 17.5, 19.0, 20.0,
             19.5, 21.0, 22.0, 21.5, 23.0, 24.0, 23.5,
@@ -153,7 +165,27 @@ mod tests {
             2.0, 1.5, 1.5,
         ];
 
-        let result = get_true_ranges(&highs, &lows, &closes);
+        let result = calc_true_ranges(&highs, &lows, &closes);
         assert_eq!(result, expected, "Failed for dynamic input");
+    }
+
+    #[test]
+    fn test_calc_wilders_smoothing() {
+        // Using extended data for a more robust test case.
+        let data = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0];
+        let period = 3;
+        let result = wilders_smoothing(&data, period);
+
+        let expected = vec![
+            Some(5.0),
+            Some(22.0 / 3.0),
+            Some(89.0 / 9.0),
+            Some(340.0 / 27.0),
+            Some(1247.0 / 81.0),
+        ];
+        assert_eq!(
+            round_vec(result.into_iter().map(Some).collect(), 8),
+            round_vec(expected, 8)
+        );
     }
 }
