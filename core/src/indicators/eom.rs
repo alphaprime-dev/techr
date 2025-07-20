@@ -1,4 +1,4 @@
-use crate::overlap::sma;
+use crate::indicators::sma::sma;
 
 pub fn eom(
     highs: &[f64],

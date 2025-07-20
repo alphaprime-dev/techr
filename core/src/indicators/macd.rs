@@ -1,4 +1,4 @@
-use crate::overlap::ema;
+use crate::indicators::ema::ema;
 
 pub fn macd(
     data: &[f64],

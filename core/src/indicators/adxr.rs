@@ -1,4 +1,4 @@
-use super::adx::adx;
+use crate::indicators::adx::adx;
 
 pub fn adxr(
     highs: &[f64],

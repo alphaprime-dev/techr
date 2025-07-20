@@ -1,4 +1,4 @@
-use super::dmi::dmi;
+use crate::indicators::dmi::dmi;
 
 pub fn adx(
     highs: &[f64],

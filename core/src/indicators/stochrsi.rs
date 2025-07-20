@@ -1,4 +1,4 @@
-use crate::momentum::rsi::rsi;
+use crate::indicators::rsi;
 use crate::utils::{calc_mean, find_max, find_min};
 
 pub fn stochrsi(

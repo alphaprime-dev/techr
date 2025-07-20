@@ -1,4 +1,4 @@
-use crate::overlap::ema;
+use crate::indicators::ema::ema;
 
 pub fn cv(highs: &[f64], lows: &[f64], period: usize) -> Vec<Option<f64>> {
     let mut cv = vec![None; highs.len()];

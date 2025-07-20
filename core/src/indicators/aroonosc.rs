@@ -1,4 +1,4 @@
-use crate::momentum::aroon;
+use crate::indicators::aroon;
 
 pub fn aroonosc(highs: &[f64], lows: &[f64], period: usize) -> Vec<Option<f64>> {
     let mut aroonosc = vec![None; highs.len()];

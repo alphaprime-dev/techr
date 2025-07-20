@@ -1,4 +1,4 @@
-use crate::overlap::sma;
+use crate::indicators::sma::sma;
 
 pub fn disp(data: &[f64], period: usize) -> Vec<Option<f64>> {
     let len = data.len();
