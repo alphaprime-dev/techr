@@ -66,60 +66,9 @@ def select_expr(df: pl.DataFrame, expr: pl.Expr, alias: str, lazy: bool) -> pl.S
     return result.get_column(alias)
 
 
-def rolling_midpoint(highs: list[float], lows: list[float], period: int) -> list[float | None]:
-    result: list[float | None] = [None] * len(highs)
-    if len(highs) < period:
-        return result
-
-    for idx in range(period - 1, len(highs)):
-        window_highs = highs[idx + 1 - period : idx + 1]
-        window_lows = lows[idx + 1 - period : idx + 1]
-        result[idx] = (max(window_highs) + min(window_lows)) / 2
-    return result
-
-
-def shift(values: list[float | None], periods: int) -> list[float | None]:
-    shifted: list[float | None] = [None] * len(values)
-    for idx, value in enumerate(values):
-        target = idx + periods
-        if 0 <= target < len(values):
-            shifted[target] = value
-    return shifted
-
-
-def ichimoku_expected_base_line(df: pl.DataFrame, period: int) -> list[float | None]:
-    return rolling_midpoint(df["high"].to_list(), df["low"].to_list(), period)
-
-
-def ichimoku_expected_leading_span_a(
-    df: pl.DataFrame,
-    base_line_period: int,
-    conversion_line_period: int,
-) -> list[float | None]:
-    base_line = rolling_midpoint(df["high"].to_list(), df["low"].to_list(), base_line_period)
-    conversion_line = rolling_midpoint(
-        df["high"].to_list(),
-        df["low"].to_list(),
-        conversion_line_period,
-    )
-    span = [
-        None if base is None or conversion is None else (base + conversion) / 2
-        for base, conversion in zip(base_line, conversion_line)
-    ]
-    return shift(span, -26)
-
-
-def ichimoku_expected_leading_span_b(df: pl.DataFrame, period: int) -> list[float | None]:
-    return shift(rolling_midpoint(df["high"].to_list(), df["low"].to_list(), period), -26)
-
-
-def ichimoku_expected_lagging_span(df: pl.DataFrame, period: int) -> list[float | None]:
-    return shift(df["close"].to_list(), period)
-
-
 SeriesExprBuilder = Callable[[], pl.Expr]
 
-SERIES_CASES: list[tuple[str, SeriesExprBuilder, str]] = [
+CORE_EXPECTED_CASES: list[tuple[str, SeriesExprBuilder, str]] = [
     ("sma", lambda: ta.sma(pl.col("close"), period=20), "sma"),
     ("wma", lambda: ta.wma(pl.col("close"), period=20), "wma"),
     ("ema", lambda: ta.ema(pl.col("close"), period=20), "ema"),
@@ -206,19 +155,24 @@ SERIES_CASES: list[tuple[str, SeriesExprBuilder, str]] = [
         ),
         "stochs_D",
     ),
-]
-
-ICHIMOKU_CASES = [
     (
         "ichimoku_base_line",
         lambda: ta.ichimoku_base_line(pl.col("high"), pl.col("low"), period=26),
-        lambda df: ichimoku_expected_base_line(df, 26),
+        "ichimoku_base_line",
     ),
     (
         "ichimoku_conversion_line",
         lambda: ta.ichimoku_conversion_line(pl.col("high"), pl.col("low"), period=9),
-        lambda df: ichimoku_expected_base_line(df, 9),
+        "ichimoku_conversion_line",
     ),
+    (
+        "ichimoku_lagging_span",
+        lambda: ta.ichimoku_lagging_span(pl.col("close"), period=26),
+        "ichimoku_lagging_span",
+    ),
+]
+
+TRUNCATED_CORE_EXPECTED_CASES: list[tuple[str, SeriesExprBuilder, str]] = [
     (
         "ichimoku_leading_span_a",
         lambda: ta.ichimoku_leading_span_a(
@@ -227,50 +181,19 @@ ICHIMOKU_CASES = [
             base_line_period=26,
             conversion_line_period=9,
         ),
-        lambda df: ichimoku_expected_leading_span_a(df, 26, 9),
+        "ichimoku_leading_span_a",
     ),
     (
         "ichimoku_leading_span_b",
         lambda: ta.ichimoku_leading_span_b(pl.col("high"), pl.col("low"), period=52),
-        lambda df: ichimoku_expected_leading_span_b(df, 52),
-    ),
-    (
-        "ichimoku_lagging_span",
-        lambda: ta.ichimoku_lagging_span(pl.col("close"), period=26),
-        lambda df: ichimoku_expected_lagging_span(df, 26),
+        "ichimoku_leading_span_b",
     ),
 ]
 
 
-def test_public_api_exports() -> None:
-    assert ta.__version__
-    for name in (
-        "sma",
-        "wma",
-        "ema",
-        "disparity",
-        "macd",
-        "macd_signal",
-        "macd_hist",
-        "bband_middle",
-        "bband_lower",
-        "bband_upper",
-        "stochf_percent_k",
-        "stochf_percent_d",
-        "stoch_percent_k",
-        "stoch_percent_d",
-        "ichimoku_base_line",
-        "ichimoku_conversion_line",
-        "ichimoku_leading_span_a",
-        "ichimoku_leading_span_b",
-        "ichimoku_lagging_span",
-    ):
-        assert hasattr(ta, name)
-
-
 @pytest.mark.parametrize("symbol", SYMBOLS)
 @pytest.mark.parametrize("lazy", [False, True])
-@pytest.mark.parametrize(("name", "expr_builder", "expected_name"), SERIES_CASES)
+@pytest.mark.parametrize(("name", "expr_builder", "expected_name"), CORE_EXPECTED_CASES)
 def test_indicator_matches_core_expected(
     symbol: str,
     lazy: bool,
@@ -278,35 +201,60 @@ def test_indicator_matches_core_expected(
     expr_builder: SeriesExprBuilder,
     expected_name: str,
 ) -> None:
+    """Match core expected fixtures for non-truncated indicator outputs."""
+    # given
     df = load_ohlcv(symbol)
-    result = select_expr(df, expr_builder(), name, lazy)
     expected = load_expected(expected_name, symbol)
+
+    # when
+    result = select_expr(df, expr_builder(), name, lazy)
+
+    # then
     assert_values_close(round_values(result.to_list()), round_values(expected))
 
 
 @pytest.mark.parametrize("symbol", SYMBOLS)
 @pytest.mark.parametrize("lazy", [False, True])
-@pytest.mark.parametrize(("name", "expr_builder", "expected_builder"), ICHIMOKU_CASES)
-def test_ichimoku_matches_alphata_semantics(
+@pytest.mark.parametrize(
+    ("name", "expr_builder", "expected_name"),
+    TRUNCATED_CORE_EXPECTED_CASES,
+)
+def test_indicator_matches_truncated_core_expected(
     symbol: str,
     lazy: bool,
     name: str,
     expr_builder: SeriesExprBuilder,
-    expected_builder: Callable[[pl.DataFrame], list[float | None]],
+    expected_name: str,
 ) -> None:
+    """Truncate longer core fixtures to the Polars output height before comparing."""
+    # given
     df = load_ohlcv(symbol)
+    expected = load_expected(expected_name, symbol)
+
+    # when
     result = select_expr(df, expr_builder(), name, lazy)
-    expected = expected_builder(df)
+
+    # then
+    assert len(expected) > df.height
+    expected = expected[: df.height]
     assert_values_close(round_values(result.to_list()), round_values(expected))
 
 
 def test_single_input_integer_columns_are_cast_to_float() -> None:
+    """Cast integer single-input columns to float before indicator evaluation."""
+    # given
     df = pl.DataFrame({"close": [1, 2, 3, 4, 5]})
+
+    # when
     result = df.select(ta.sma(pl.col("close"), period=2).alias("sma")).get_column("sma")
+
+    # then
     assert result.to_list() == [None, 1.5, 2.5, 3.5, 4.5]
 
 
 def test_multi_input_integer_columns_are_cast_to_float() -> None:
+    """Cast integer multi-input columns to float before indicator evaluation."""
+    # given
     df = pl.DataFrame(
         {
             "high": [11, 12, 13, 14, 15],
@@ -314,6 +262,8 @@ def test_multi_input_integer_columns_are_cast_to_float() -> None:
             "close": [6, 7, 8, 9, 10],
         }
     )
+
+    # when
     result = df.select(
         ta.stochf_percent_k(
             pl.col("high"),
@@ -323,6 +273,8 @@ def test_multi_input_integer_columns_are_cast_to_float() -> None:
             fastd_period=2,
         ).alias("value")
     ).get_column("value")
+
+    # then
     assert round_values(result.to_list()) == [
         None,
         None,

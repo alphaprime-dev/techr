@@ -2,8 +2,13 @@ use polars::prelude::*;
 use pyo3_polars::derive::polars_expr;
 use serde::Deserialize;
 use techr::{
-    bband as techr_bband, disparity as techr_disparity, ema as techr_ema, macd as techr_macd,
-    sma as techr_sma, stochf as techr_stochf, stochs as techr_stochs, wma as techr_wma,
+    bband as techr_bband, disparity as techr_disparity, ema as techr_ema,
+    ichimoku_base_line as techr_ichimoku_base_line,
+    ichimoku_conversion_line as techr_ichimoku_conversion_line,
+    ichimoku_lagging_span as techr_ichimoku_lagging_span,
+    ichimoku_leading_span_a as techr_ichimoku_leading_span_a,
+    ichimoku_leading_span_b as techr_ichimoku_leading_span_b, macd as techr_macd, sma as techr_sma,
+    stochf as techr_stochf, stochs as techr_stochs, wma as techr_wma,
 };
 
 #[derive(Deserialize)]
@@ -58,51 +63,8 @@ fn option_vec_to_series(values: Vec<Option<f64>>) -> Series {
     values.into_iter().collect()
 }
 
-fn shift(values: Vec<Option<f64>>, periods: isize) -> Vec<Option<f64>> {
-    let len = values.len();
-    let mut shifted = vec![None; len];
-
-    for (idx, value) in values.into_iter().enumerate() {
-        let target = idx as isize + periods;
-        if (0..len as isize).contains(&target) {
-            shifted[target as usize] = value;
-        }
-    }
-
-    shifted
-}
-
-fn rolling_midpoint(highs: &[f64], lows: &[f64], period: usize) -> Vec<Option<f64>> {
-    let len = highs.len();
-    let mut result = vec![None; len];
-
-    if len < period {
-        return result;
-    }
-
-    for i in (period - 1)..len {
-        let max_high = highs[i + 1 - period..=i]
-            .iter()
-            .copied()
-            .fold(f64::NEG_INFINITY, f64::max);
-        let min_low = lows[i + 1 - period..=i]
-            .iter()
-            .copied()
-            .fold(f64::INFINITY, f64::min);
-        result[i] = Some((max_high + min_low) / 2.0);
-    }
-
-    result
-}
-
-fn mean_optional(lhs: Vec<Option<f64>>, rhs: Vec<Option<f64>>) -> Vec<Option<f64>> {
-    lhs.into_iter()
-        .zip(rhs)
-        .map(|(left, right)| match (left, right) {
-            (Some(left), Some(right)) => Some((left + right) / 2.0),
-            _ => None,
-        })
-        .collect()
+fn truncate(values: Vec<Option<f64>>, len: usize) -> Vec<Option<f64>> {
+    values.into_iter().take(len).collect()
 }
 
 #[polars_expr(output_type=Float64)]
@@ -256,7 +218,7 @@ fn stoch_percent_d(inputs: &[Series], kwargs: StochKwargs) -> PolarsResult<Serie
 fn ichimoku_base_line(inputs: &[Series], kwargs: PeriodKwargs) -> PolarsResult<Series> {
     let highs = series_to_f64_vec(&inputs[0])?;
     let lows = series_to_f64_vec(&inputs[1])?;
-    Ok(option_vec_to_series(rolling_midpoint(
+    Ok(option_vec_to_series(techr_ichimoku_base_line(
         &highs,
         &lows,
         kwargs.period as usize,
@@ -267,7 +229,7 @@ fn ichimoku_base_line(inputs: &[Series], kwargs: PeriodKwargs) -> PolarsResult<S
 fn ichimoku_conversion_line(inputs: &[Series], kwargs: PeriodKwargs) -> PolarsResult<Series> {
     let highs = series_to_f64_vec(&inputs[0])?;
     let lows = series_to_f64_vec(&inputs[1])?;
-    Ok(option_vec_to_series(rolling_midpoint(
+    Ok(option_vec_to_series(techr_ichimoku_conversion_line(
         &highs,
         &lows,
         kwargs.period as usize,
@@ -281,23 +243,34 @@ fn ichimoku_leading_span_a(
 ) -> PolarsResult<Series> {
     let highs = series_to_f64_vec(&inputs[0])?;
     let lows = series_to_f64_vec(&inputs[1])?;
-    let base_line = rolling_midpoint(&highs, &lows, kwargs.base_line_period as usize);
-    let conversion_line = rolling_midpoint(&highs, &lows, kwargs.conversion_line_period as usize);
-    let span = mean_optional(base_line, conversion_line);
-    Ok(option_vec_to_series(shift(span, -26)))
+    let len = highs.len();
+    Ok(option_vec_to_series(truncate(
+        techr_ichimoku_leading_span_a(
+            &highs,
+            &lows,
+            kwargs.conversion_line_period as usize,
+            kwargs.base_line_period as usize,
+        ),
+        len,
+    )))
 }
 
 #[polars_expr(output_type=Float64)]
 fn ichimoku_leading_span_b(inputs: &[Series], kwargs: PeriodKwargs) -> PolarsResult<Series> {
     let highs = series_to_f64_vec(&inputs[0])?;
     let lows = series_to_f64_vec(&inputs[1])?;
-    let span = rolling_midpoint(&highs, &lows, kwargs.period as usize);
-    Ok(option_vec_to_series(shift(span, -26)))
+    let len = highs.len();
+    Ok(option_vec_to_series(truncate(
+        techr_ichimoku_leading_span_b(&highs, &lows, 26, kwargs.period as usize),
+        len,
+    )))
 }
 
 #[polars_expr(output_type=Float64)]
 fn ichimoku_lagging_span(inputs: &[Series], kwargs: PeriodKwargs) -> PolarsResult<Series> {
     let closes = series_to_f64_vec(&inputs[0])?;
-    let span = closes.into_iter().map(Some).collect::<Vec<_>>();
-    Ok(option_vec_to_series(shift(span, kwargs.period as isize)))
+    Ok(option_vec_to_series(techr_ichimoku_lagging_span(
+        &closes,
+        kwargs.period as usize,
+    )))
 }

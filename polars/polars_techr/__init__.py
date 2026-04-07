@@ -4,13 +4,11 @@ from typing import Any
 import polars as pl
 from polars.plugins import register_plugin_function
 
-from polars_techr._polars_techr import __version__
 from polars_techr.types import IntoExpr
 
 LIB = Path(__file__).parent
 
 __all__ = [
-    "__version__",
     "bband_lower",
     "bband_middle",
     "bband_upper",

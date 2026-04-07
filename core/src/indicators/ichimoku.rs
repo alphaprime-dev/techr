@@ -1,4 +1,67 @@
-use crate::utils::{find_max, find_min};
+use crate::utils::{forward_shift, rolling_midpoint};
+
+pub fn ichimoku_conversion_line(
+    highs: &[f64],
+    lows: &[f64],
+    conversion_line_period: usize,
+) -> Vec<Option<f64>> {
+    rolling_midpoint(highs, lows, conversion_line_period)
+}
+
+pub fn ichimoku_base_line(
+    highs: &[f64],
+    lows: &[f64],
+    base_line_period: usize,
+) -> Vec<Option<f64>> {
+    rolling_midpoint(highs, lows, base_line_period)
+}
+
+pub fn ichimoku_lagging_span(closes: &[f64], base_line_period: usize) -> Vec<Option<f64>> {
+    let len = closes.len();
+    let mut lagging_span = vec![None; len];
+
+    if len < base_line_period {
+        return lagging_span;
+    }
+
+    for i in (base_line_period - 1)..len {
+        lagging_span[i + 1 - base_line_period] = Some(closes[i]);
+    }
+
+    lagging_span
+}
+
+pub fn ichimoku_leading_span_a(
+    highs: &[f64],
+    lows: &[f64],
+    conversion_line_period: usize,
+    base_line_period: usize,
+) -> Vec<Option<f64>> {
+    let conversion_line = ichimoku_conversion_line(highs, lows, conversion_line_period);
+    let base_line = ichimoku_base_line(highs, lows, base_line_period);
+    let span = conversion_line
+        .into_iter()
+        .zip(base_line)
+        .map(|(conversion, base)| match (conversion, base) {
+            (Some(conversion), Some(base)) => Some((conversion + base) / 2.0),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+
+    forward_shift(span, base_line_period)
+}
+
+pub fn ichimoku_leading_span_b(
+    highs: &[f64],
+    lows: &[f64],
+    base_line_period: usize,
+    leading_span_b_period: usize,
+) -> Vec<Option<f64>> {
+    forward_shift(
+        rolling_midpoint(highs, lows, leading_span_b_period),
+        base_line_period,
+    )
+}
 
 pub fn ichimoku(
     highs: &[f64],
@@ -14,37 +77,13 @@ pub fn ichimoku(
     Vec<Option<f64>>, // Leading span A
     Vec<Option<f64>>, // Leading span B
 ) {
-    let len = highs.len();
-    let mut conversion_line = vec![None; len];
-    let mut base_line = vec![None; len];
-    let mut lagging_span = vec![None; len];
-    let mut leading_span_a = vec![None; len + base_line_period - 1];
-    let mut leading_span_b = vec![None; len + base_line_period - 1];
-
-    for i in 0..len {
-        if i >= conversion_line_period - 1 {
-            let max_high = find_max(&highs[i + 1 - conversion_line_period..=i]);
-            let min_low = find_min(&lows[i + 1 - conversion_line_period..=i]);
-            conversion_line[i] = Some((max_high + min_low) / 2.0);
-        }
-
-        if i >= base_line_period - 1 {
-            let max_high = find_max(&highs[i + 1 - base_line_period..=i]);
-            let min_low = find_min(&lows[i + 1 - base_line_period..=i]);
-            base_line[i] = Some((max_high + min_low) / 2.0);
-            lagging_span[i + 1 - base_line_period] = Some(closes[i]);
-        }
-
-        if let (Some(conversion), Some(base)) = (conversion_line[i], base_line[i]) {
-            leading_span_a[i + base_line_period - 1] = Some((conversion + base) / 2.0);
-        }
-
-        if i >= leading_span_b_period - 1 {
-            let max_high = find_max(&highs[i + 1 - leading_span_b_period..=i]);
-            let min_low = find_min(&lows[i + 1 - leading_span_b_period..=i]);
-            leading_span_b[i + base_line_period - 1] = Some((max_high + min_low) / 2.0);
-        }
-    }
+    let conversion_line = ichimoku_conversion_line(highs, lows, conversion_line_period);
+    let base_line = ichimoku_base_line(highs, lows, base_line_period);
+    let lagging_span = ichimoku_lagging_span(closes, base_line_period);
+    let leading_span_a =
+        ichimoku_leading_span_a(highs, lows, conversion_line_period, base_line_period);
+    let leading_span_b =
+        ichimoku_leading_span_b(highs, lows, base_line_period, leading_span_b_period);
 
     (
         conversion_line,
