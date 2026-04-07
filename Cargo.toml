@@ -3,4 +3,5 @@ members = [
     "core",
     "polars"
 ]
+default-members = ["core"]
 resolver = "2"
