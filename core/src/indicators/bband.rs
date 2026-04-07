@@ -5,23 +5,23 @@ use crate::utils::round_scalar;
 pub fn bband(
     data: &[f64],
     period: usize,
-    multiplier: Option<f64>,
+    sigma: Option<f64>,
 ) -> (Vec<Option<f64>>, Vec<Option<f64>>, Vec<Option<f64>>) {
     let center = sma(data, period);
-    let (upper_band, lower_band) = bband_bands(data, period, multiplier);
+    let (upper_band, lower_band) = bband_bands(data, period, sigma);
     (upper_band, center, lower_band)
 }
 
 fn bband_bands(
     data: &[f64],
     period: usize,
-    multiplier: Option<f64>,
+    sigma: Option<f64>,
 ) -> (Vec<Option<f64>>, Vec<Option<f64>>) {
     let mut upper_band = vec![None; data.len()];
     let mut lower_band = vec![None; data.len()];
     let mut sum = 0.0;
     let mut sum_sq = 0.0;
-    let multiplier = multiplier.unwrap_or(2.0);
+    let sigma = sigma.unwrap_or(2.0);
 
     if data.len() < period {
         return (upper_band, lower_band);
@@ -40,7 +40,7 @@ fn bband_bands(
             let mean = sum / period as f64;
             let variance = (sum_sq / period as f64) - (mean * mean);
             let stddev = variance.sqrt();
-            let deviation = multiplier * stddev;
+            let deviation = sigma * stddev;
             upper_band[i] = Some(round_scalar(mean + deviation, 8));
             lower_band[i] = Some(round_scalar(mean - deviation, 8));
         }

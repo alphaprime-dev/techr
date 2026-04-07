@@ -4,22 +4,22 @@ pub fn stochs(
     highs: &[f64],
     lows: &[f64],
     closes: &[f64],
-    period_k: usize,
-    period_d: usize,
-    smoothing: usize,
+    fastk_period: usize,
+    slowk_period: usize,
+    slowd_period: usize,
 ) -> (Vec<Option<f64>>, Vec<Option<f64>>) {
     let len = closes.len();
     let mut percent_k = vec![None; len];
     let mut percent_d = vec![None; len];
 
-    if len < period_k {
+    if len < fastk_period {
         return (percent_k, percent_d);
     }
 
     let mut raw_k = vec![None; len];
-    for i in (period_k - 1)..len {
-        let max_high = find_max(&highs[i + 1 - period_k..=i]);
-        let min_low = find_min(&lows[i + 1 - period_k..=i]);
+    for i in (fastk_period - 1)..len {
+        let max_high = find_max(&highs[i + 1 - fastk_period..=i]);
+        let min_low = find_min(&lows[i + 1 - fastk_period..=i]);
 
         raw_k[i] = if max_high == min_low {
             None
@@ -27,20 +27,20 @@ pub fn stochs(
             Some(((closes[i] - min_low) / (max_high - min_low)) * 100.0)
         };
     }
-    for i in (period_k + smoothing - 2)..len {
-        let slice = &raw_k[i + 1 - smoothing..=i];
+    for i in (fastk_period + slowk_period - 2)..len {
+        let slice = &raw_k[i + 1 - slowk_period..=i];
         let valid_values: Vec<f64> = slice.iter().filter_map(|&x| x).collect();
-        percent_k[i] = if valid_values.len() == smoothing {
+        percent_k[i] = if valid_values.len() == slowk_period {
             Some(calc_mean(&valid_values))
         } else {
             None
         };
     }
 
-    for i in (period_k + smoothing + period_d - 3)..len {
-        let slice = &percent_k[i + 1 - period_d..=i];
+    for i in (fastk_period + slowk_period + slowd_period - 3)..len {
+        let slice = &percent_k[i + 1 - slowd_period..=i];
         let valid_values: Vec<f64> = slice.iter().filter_map(|&x| x).collect();
-        percent_d[i] = if valid_values.len() == period_d {
+        percent_d[i] = if valid_values.len() == slowd_period {
             Some(calc_mean(&valid_values))
         } else {
             None
