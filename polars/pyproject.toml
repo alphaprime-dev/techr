@@ -2,7 +2,7 @@
 name = "polars-techr"
 version = "0.1.0"
 description = "Python wrapper for polars-techr"
-authors = [{ name = "sjquant", email = "seonujang92@gmail.com" }]
+authors = [{ name = "alphaprime-dev" }]
 requires-python = ">=3.10,<3.14"
 readme = "README.md"
 license = "MIT"
