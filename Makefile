@@ -7,13 +7,13 @@ export CARGO_TERM_COLOR=$(shell (test -t 0 && echo "always") || echo "auto")
 .PHONY: build-dev-polars
 build-dev-polars:
 	@rm -f polars/polars_techr/*.so
-	cd polars &&maturin develop
+	cd polars && uv run maturin develop --uv
 
 
 .PHONY: build-prod-polars
 build-prod-polars:
 	@rm -f polars/polars_techr/*.so
-	cd polars && maturin build --release
+	cd polars && uv run maturin build --release
 
 
 .PHONY: test-core
@@ -22,7 +22,7 @@ test-core:
 
 .PHONY: test-polars
 test-polars:
-	cd polars && pytest
+	cd polars && uv run pytest
 
 .PHONY: test
 test: test-core test-polars

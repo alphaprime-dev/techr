@@ -1,20 +1,26 @@
-[tool.poetry]
+[project]
 name = "polars-techr"
 version = "0.1.0"
 description = "Python wrapper for polars-techr"
-authors = ["sjquant <seonujang92@gmail.com>"]
-license = "MIT"
+authors = [{ name = "alphaprime-dev" }]
+requires-python = ">=3.10,<3.14"
 readme = "README.md"
+license = "MIT"
+dependencies = ["polars>=1.26.0"]
 
-[tool.poetry.dependencies]
-python = "^3.10"
-polars = "^1.7.1"
+[dependency-groups]
+dev = [
+    "maturin>=1.7.1,<2",
+    "ruff==0.15.8",
+    "pytest>=8.3.3,<9",
+    "ty>=0.0.29",
+]
 
-[tool.poetry.group.dev.dependencies]
-maturin = "^1.7.1"
-ruff = "^0.6.5"
-pyright = "^1.1.380"
-pytest = "^8.3.3"
+[tool.uv]
+default-groups = "all"
+
+[tool.maturin]
+module-name = "polars_techr._polars_techr"
 
 [build-system]
 requires = ["maturin>=1.0,<2.0", "polars>=1.7.1"]
