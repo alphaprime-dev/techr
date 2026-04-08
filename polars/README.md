@@ -38,3 +38,9 @@ result = df.select(
     ).alias("stochf_k"),
 )
 ```
+
+## Ichimoku Notes
+
+- Standalone Ichimoku line functions use `period` when they need a single period.
+- `ichimoku_leading_span_a` uses `base_line_period` and `conversion_line_period` because it combines two lines.
+- Polars plugins keep the output row-aligned with the input, so `ichimoku_leading_span_a` and `ichimoku_leading_span_b` truncate the forward-projected tail from the core result.

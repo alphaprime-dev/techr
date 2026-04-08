@@ -188,10 +188,12 @@ def stoch_percent_d(
 
 
 def ichimoku_base_line(high: IntoExpr, low: IntoExpr, *, period: int) -> pl.Expr:
+    """Return the Ichimoku base line for a single rolling period."""
     return _register("ichimoku_base_line", [high, low], {"period": period})
 
 
 def ichimoku_conversion_line(high: IntoExpr, low: IntoExpr, *, period: int) -> pl.Expr:
+    """Return the Ichimoku conversion line for a single rolling period."""
     return _register("ichimoku_conversion_line", [high, low], {"period": period})
 
 
@@ -202,6 +204,7 @@ def ichimoku_leading_span_a(
     base_line_period: int,
     conversion_line_period: int,
 ) -> pl.Expr:
+    """Return leading span A, truncated to the input row count."""
     return _register(
         "ichimoku_leading_span_a",
         [high, low],
@@ -213,8 +216,10 @@ def ichimoku_leading_span_a(
 
 
 def ichimoku_leading_span_b(high: IntoExpr, low: IntoExpr, *, period: int) -> pl.Expr:
+    """Return leading span B, truncated to the input row count."""
     return _register("ichimoku_leading_span_b", [high, low], {"period": period})
 
 
 def ichimoku_lagging_span(close: IntoExpr, *, period: int) -> pl.Expr:
+    """Return the Ichimoku lagging span shifted within the input row count."""
     return _register("ichimoku_lagging_span", [close], {"period": period})

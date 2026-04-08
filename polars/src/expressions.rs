@@ -268,7 +268,7 @@ fn ichimoku_leading_span_b(inputs: &[Series], kwargs: PeriodKwargs) -> PolarsRes
     let lows = series_to_f64_vec(&inputs[1])?;
     let len = highs.len();
     Ok(option_vec_to_series(truncate(
-        techr_ichimoku_leading_span_b(&highs, &lows, 26, kwargs.period as usize),
+        techr_ichimoku_leading_span_b(&highs, &lows, kwargs.period as usize),
         len,
     )))
 }

@@ -1,5 +1,7 @@
 use crate::utils::{forward_shift, rolling_midpoint};
 
+const LEADING_SPAN_DISPLACEMENT: usize = 26;
+
 fn leading_span_a_from_lines(
     conversion_line: &[Option<f64>],
     base_line: &[Option<f64>],
@@ -17,32 +19,33 @@ fn leading_span_a_from_lines(
     forward_shift(span, base_line_period)
 }
 
-pub fn ichimoku_conversion_line(
+fn leading_span_b_with_displacement(
     highs: &[f64],
     lows: &[f64],
-    conversion_line_period: usize,
+    period: usize,
+    displacement: usize,
 ) -> Vec<Option<f64>> {
-    rolling_midpoint(highs, lows, conversion_line_period)
+    forward_shift(rolling_midpoint(highs, lows, period), displacement)
 }
 
-pub fn ichimoku_base_line(
-    highs: &[f64],
-    lows: &[f64],
-    base_line_period: usize,
-) -> Vec<Option<f64>> {
-    rolling_midpoint(highs, lows, base_line_period)
+pub fn ichimoku_conversion_line(highs: &[f64], lows: &[f64], period: usize) -> Vec<Option<f64>> {
+    rolling_midpoint(highs, lows, period)
 }
 
-pub fn ichimoku_lagging_span(closes: &[f64], base_line_period: usize) -> Vec<Option<f64>> {
+pub fn ichimoku_base_line(highs: &[f64], lows: &[f64], period: usize) -> Vec<Option<f64>> {
+    rolling_midpoint(highs, lows, period)
+}
+
+pub fn ichimoku_lagging_span(closes: &[f64], period: usize) -> Vec<Option<f64>> {
     let len = closes.len();
     let mut lagging_span = vec![None; len];
 
-    if len < base_line_period {
+    if len < period {
         return lagging_span;
     }
 
-    for i in (base_line_period - 1)..len {
-        lagging_span[i + 1 - base_line_period] = Some(closes[i]);
+    for i in (period - 1)..len {
+        lagging_span[i + 1 - period] = Some(closes[i]);
     }
 
     lagging_span
@@ -59,16 +62,8 @@ pub fn ichimoku_leading_span_a(
     leading_span_a_from_lines(&conversion_line, &base_line, base_line_period)
 }
 
-pub fn ichimoku_leading_span_b(
-    highs: &[f64],
-    lows: &[f64],
-    base_line_period: usize,
-    leading_span_b_period: usize,
-) -> Vec<Option<f64>> {
-    forward_shift(
-        rolling_midpoint(highs, lows, leading_span_b_period),
-        base_line_period,
-    )
+pub fn ichimoku_leading_span_b(highs: &[f64], lows: &[f64], period: usize) -> Vec<Option<f64>> {
+    leading_span_b_with_displacement(highs, lows, period, LEADING_SPAN_DISPLACEMENT)
 }
 
 pub fn ichimoku(
@@ -90,7 +85,7 @@ pub fn ichimoku(
     let lagging_span = ichimoku_lagging_span(closes, base_line_period);
     let leading_span_a = leading_span_a_from_lines(&conversion_line, &base_line, base_line_period);
     let leading_span_b =
-        ichimoku_leading_span_b(highs, lows, base_line_period, leading_span_b_period);
+        leading_span_b_with_displacement(highs, lows, leading_span_b_period, base_line_period);
 
     (
         conversion_line,
