@@ -36,26 +36,18 @@ def load_expected(name: str, symbol: str) -> list[float | None]:
     return json.loads((EXPECTED_DIR / f"{name}_{symbol}.json").read_text())
 
 
-def round_values(values: list[float | None], digits: int = 8) -> list[float | None]:
-    rounded: list[float | None] = []
-    for value in values:
-        rounded.append(None if value is None else round(value, digits))
-    return rounded
-
-
 def assert_values_close(
     actual: list[float | None],
     expected: list[float | None],
-    digits: int = 8,
+    abs_tol: float = 1e-8,
 ) -> None:
     assert len(actual) == len(expected)
-    tolerance = 10 ** (-digits)
 
     for actual_value, expected_value in zip(actual, expected):
         if actual_value is None or expected_value is None:
             assert actual_value is expected_value
             continue
-        assert abs(actual_value - expected_value) <= tolerance
+        assert actual_value == pytest.approx(expected_value, abs=abs_tol)
 
 
 def select_expr(df: pl.DataFrame, expr: pl.Expr, alias: str, lazy: bool) -> pl.Series:
@@ -68,6 +60,7 @@ def select_expr(df: pl.DataFrame, expr: pl.Expr, alias: str, lazy: bool) -> pl.S
 
 SeriesExprBuilder = Callable[[], pl.Expr]
 
+# Indicators whose expected fixture length matches the input row count.
 CORE_EXPECTED_CASES: list[tuple[str, SeriesExprBuilder, str]] = [
     ("sma", lambda: ta.sma(pl.col("close"), period=20), "sma"),
     ("wma", lambda: ta.wma(pl.col("close"), period=20), "wma"),
@@ -172,6 +165,8 @@ CORE_EXPECTED_CASES: list[tuple[str, SeriesExprBuilder, str]] = [
     ),
 ]
 
+# Leading spans are forward-projected in core fixtures, so Polars compares a
+# truncated prefix that matches the input row count.
 TRUNCATED_CORE_EXPECTED_CASES: list[tuple[str, SeriesExprBuilder, str]] = [
     (
         "ichimoku_leading_span_a",
@@ -210,7 +205,7 @@ def test_indicator_matches_core_expected(
     result = select_expr(df, expr_builder(), name, lazy)
 
     # then
-    assert_values_close(round_values(result.to_list()), round_values(expected))
+    assert_values_close(result.to_list(), expected)
 
 
 @pytest.mark.parametrize("symbol", SYMBOLS)
@@ -237,7 +232,7 @@ def test_indicator_matches_truncated_core_expected(
     # then
     assert len(expected) > df.height
     expected = expected[: df.height]
-    assert_values_close(round_values(result.to_list()), round_values(expected))
+    assert_values_close(result.to_list(), expected)
 
 
 def test_single_input_integer_columns_are_cast_to_float() -> None:
@@ -249,7 +244,7 @@ def test_single_input_integer_columns_are_cast_to_float() -> None:
     result = df.select(ta.sma(pl.col("close"), period=2).alias("sma")).get_column("sma")
 
     # then
-    assert result.to_list() == [None, 1.5, 2.5, 3.5, 4.5]
+    assert_values_close(result.to_list(), [None, 1.5, 2.5, 3.5, 4.5])
 
 
 def test_multi_input_integer_columns_are_cast_to_float() -> None:
@@ -275,10 +270,10 @@ def test_multi_input_integer_columns_are_cast_to_float() -> None:
     ).get_column("value")
 
     # then
-    assert round_values(result.to_list()) == [
+    assert_values_close(result.to_list(), [
         None,
         None,
         58.33333333,
         58.33333333,
         58.33333333,
-    ]
+    ])
