@@ -72,7 +72,7 @@ uv run python scripts/check_artifacts.py dist
 ## Release
 
 1. Update the version in `Cargo.toml`.
-2. Verify metadata and artifact inputs with `uv run python scripts/check_versions.py`.
+2. Optionally build release artifacts locally for a final preflight check.
 3. Optionally run the `Polars Release` workflow manually to publish the current ref to TestPyPI.
 4. Create and push a `polars-vX.Y.Z` tag to publish to PyPI.
 

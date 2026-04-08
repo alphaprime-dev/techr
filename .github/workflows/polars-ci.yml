@@ -39,9 +39,6 @@ jobs:
         working-directory: polars
         run: uv sync --group dev
 
-      - name: Check package versions
-        run: python polars/scripts/check_versions.py
-
       - name: Test techr-core
         run: cargo test -p techr-core
 

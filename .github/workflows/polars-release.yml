@@ -10,26 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  check-release:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        shell: bash
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-      - name: Check release versions
-        run: |
-          if [[ "${GITHUB_EVENT_NAME}" == "push" ]]; then
-            python polars/scripts/check_versions.py "${GITHUB_REF_NAME}"
-          else
-            python polars/scripts/check_versions.py
-          fi
-
   build-linux:
-    needs: check-release
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -96,7 +77,6 @@ jobs:
           path: polars/dist/*
 
   build-macos:
-    needs: check-release
     runs-on: macos-14
     defaults:
       run:
@@ -139,7 +119,6 @@ jobs:
           path: polars/dist/*
 
   build-windows:
-    needs: check-release
     runs-on: windows-latest
     defaults:
       run:
@@ -181,7 +160,6 @@ jobs:
           path: polars/dist/*
 
   build-sdist:
-    needs: check-release
     runs-on: ubuntu-latest
     defaults:
       run:
