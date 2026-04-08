@@ -1,6 +1,12 @@
 # polars-techr
 
-Python wrapper for `techr` indicators on top of Polars plugins.
+`polars-techr` exposes `techr` indicators as Polars expression plugins.
+
+## Installation
+
+```bash
+uv add polars-techr
+```
 
 ## Supported indicators
 
@@ -46,3 +52,28 @@ result = df.select(
 - `ichimoku_leading_span_b` uses `period` for the rolling window and `base_line_period` for the forward displacement. The Python wrapper defaults `base_line_period` to `26`.
 - `ichimoku_lagging_span` uses `base_line_period` for its backward displacement.
 - Polars plugins keep the output row-aligned with the input, so `ichimoku_leading_span_a` and `ichimoku_leading_span_b` truncate the forward-projected tail from the core result.
+## Development
+
+```bash
+cd polars
+uv sync --group dev
+uv run maturin develop --uv
+uv run pytest
+```
+
+Build distributable artifacts locally with:
+
+```bash
+cd polars
+uv run maturin build --release --sdist --out dist
+uv run python scripts/check_artifacts.py dist
+```
+
+## Release
+
+1. Update the version in `Cargo.toml`.
+2. Optionally build release artifacts locally for a final preflight check.
+3. Optionally run the `Polars Release` workflow manually to publish the current ref to TestPyPI.
+4. Create and push a `polars-vX.Y.Z` tag to publish to PyPI.
+
+Before the first release, configure Trusted Publishers for both PyPI and TestPyPI on `alphaprime-dev/techr`.

@@ -4,9 +4,9 @@ from typing import Any
 import polars as pl
 from polars.plugins import register_plugin_function
 
-from polars_techr.types import IntoExpr
+from .types import IntoExpr
 
-LIB = Path(__file__).parent
+LIB = Path(__file__).resolve().parent
 
 __all__ = [
     "bband_lower",
