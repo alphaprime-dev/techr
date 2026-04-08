@@ -215,11 +215,25 @@ def ichimoku_leading_span_a(
     )
 
 
-def ichimoku_leading_span_b(high: IntoExpr, low: IntoExpr, *, period: int) -> pl.Expr:
-    """Return leading span B, truncated to the input row count."""
-    return _register("ichimoku_leading_span_b", [high, low], {"period": period})
+def ichimoku_leading_span_b(
+    high: IntoExpr,
+    low: IntoExpr,
+    *,
+    period: int,
+    base_line_period: int = 26,
+) -> pl.Expr:
+    """Return leading span B shifted by the base line period and truncated to the input row count."""
+    return _register(
+        "ichimoku_leading_span_b",
+        [high, low],
+        {"period": period, "base_line_period": base_line_period},
+    )
 
 
-def ichimoku_lagging_span(close: IntoExpr, *, period: int) -> pl.Expr:
-    """Return the Ichimoku lagging span shifted within the input row count."""
-    return _register("ichimoku_lagging_span", [close], {"period": period})
+def ichimoku_lagging_span(close: IntoExpr, *, base_line_period: int) -> pl.Expr:
+    """Return the Ichimoku lagging span shifted by the base line period within the input row count."""
+    return _register(
+        "ichimoku_lagging_span",
+        [close],
+        {"base_line_period": base_line_period},
+    )

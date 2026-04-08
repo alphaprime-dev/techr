@@ -41,6 +41,8 @@ result = df.select(
 
 ## Ichimoku Notes
 
-- Standalone Ichimoku line functions use `period` when they need a single period.
+- Standalone Ichimoku rolling-window lines such as `ichimoku_base_line` and `ichimoku_conversion_line` use `period`.
 - `ichimoku_leading_span_a` uses `base_line_period` and `conversion_line_period` because it combines two lines.
+- `ichimoku_leading_span_b` uses `period` for the rolling window and `base_line_period` for the forward displacement. The Python wrapper defaults `base_line_period` to `26`.
+- `ichimoku_lagging_span` uses `base_line_period` for its backward displacement.
 - Polars plugins keep the output row-aligned with the input, so `ichimoku_leading_span_a` and `ichimoku_leading_span_b` truncate the forward-projected tail from the core result.

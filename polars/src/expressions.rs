@@ -54,6 +54,17 @@ struct IchimokuLeadingSpanAKwargs {
     conversion_line_period: u32,
 }
 
+#[derive(Deserialize)]
+struct IchimokuLeadingSpanBKwargs {
+    period: u32,
+    base_line_period: u32,
+}
+
+#[derive(Deserialize)]
+struct IchimokuLaggingSpanKwargs {
+    base_line_period: u32,
+}
+
 fn series_to_f64_vec(series: &Series) -> PolarsResult<Vec<f64>> {
     let casted = series.cast(&DataType::Float64)?;
     let values = casted.f64()?.to_vec_null_aware();
@@ -263,21 +274,32 @@ fn ichimoku_leading_span_a(
 }
 
 #[polars_expr(output_type=Float64)]
-fn ichimoku_leading_span_b(inputs: &[Series], kwargs: PeriodKwargs) -> PolarsResult<Series> {
+fn ichimoku_leading_span_b(
+    inputs: &[Series],
+    kwargs: IchimokuLeadingSpanBKwargs,
+) -> PolarsResult<Series> {
     let highs = series_to_f64_vec(&inputs[0])?;
     let lows = series_to_f64_vec(&inputs[1])?;
     let len = highs.len();
     Ok(option_vec_to_series(truncate(
-        techr_ichimoku_leading_span_b(&highs, &lows, kwargs.period as usize),
+        techr_ichimoku_leading_span_b(
+            &highs,
+            &lows,
+            kwargs.period as usize,
+            kwargs.base_line_period as usize,
+        ),
         len,
     )))
 }
 
 #[polars_expr(output_type=Float64)]
-fn ichimoku_lagging_span(inputs: &[Series], kwargs: PeriodKwargs) -> PolarsResult<Series> {
+fn ichimoku_lagging_span(
+    inputs: &[Series],
+    kwargs: IchimokuLaggingSpanKwargs,
+) -> PolarsResult<Series> {
     let closes = series_to_f64_vec(&inputs[0])?;
     Ok(option_vec_to_series(techr_ichimoku_lagging_span(
         &closes,
-        kwargs.period as usize,
+        kwargs.base_line_period as usize,
     )))
 }

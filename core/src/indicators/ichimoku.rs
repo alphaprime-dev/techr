@@ -1,7 +1,5 @@
 use crate::utils::{forward_shift, rolling_midpoint};
 
-const ICHIMOKU_DISPLACEMENT: usize = 26;
-
 fn leading_span_a_from_lines(
     conversion_line: &[Option<f64>],
     base_line: &[Option<f64>],
@@ -27,16 +25,16 @@ pub fn ichimoku_base_line(highs: &[f64], lows: &[f64], period: usize) -> Vec<Opt
     rolling_midpoint(highs, lows, period)
 }
 
-pub fn ichimoku_lagging_span(closes: &[f64], period: usize) -> Vec<Option<f64>> {
+pub fn ichimoku_lagging_span(closes: &[f64], base_line_period: usize) -> Vec<Option<f64>> {
     let len = closes.len();
     let mut lagging_span = vec![None; len];
 
-    if len < period {
+    if len < base_line_period {
         return lagging_span;
     }
 
-    for i in (period - 1)..len {
-        lagging_span[i + 1 - period] = Some(closes[i]);
+    for i in (base_line_period - 1)..len {
+        lagging_span[i + 1 - base_line_period] = Some(closes[i]);
     }
 
     lagging_span
@@ -53,8 +51,13 @@ pub fn ichimoku_leading_span_a(
     leading_span_a_from_lines(&conversion_line, &base_line, base_line_period)
 }
 
-pub fn ichimoku_leading_span_b(highs: &[f64], lows: &[f64], period: usize) -> Vec<Option<f64>> {
-    forward_shift(rolling_midpoint(highs, lows, period), ICHIMOKU_DISPLACEMENT)
+pub fn ichimoku_leading_span_b(
+    highs: &[f64],
+    lows: &[f64],
+    period: usize,
+    base_line_period: usize,
+) -> Vec<Option<f64>> {
+    forward_shift(rolling_midpoint(highs, lows, period), base_line_period)
 }
 
 pub fn ichimoku(
@@ -73,9 +76,10 @@ pub fn ichimoku(
 ) {
     let conversion_line = ichimoku_conversion_line(highs, lows, conversion_line_period);
     let base_line = ichimoku_base_line(highs, lows, base_line_period);
-    let lagging_span = ichimoku_lagging_span(closes, ICHIMOKU_DISPLACEMENT);
+    let lagging_span = ichimoku_lagging_span(closes, base_line_period);
     let leading_span_a = leading_span_a_from_lines(&conversion_line, &base_line, base_line_period);
-    let leading_span_b = ichimoku_leading_span_b(highs, lows, leading_span_b_period);
+    let leading_span_b =
+        ichimoku_leading_span_b(highs, lows, leading_span_b_period, base_line_period);
 
     (
         conversion_line,

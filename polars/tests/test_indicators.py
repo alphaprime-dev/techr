@@ -160,7 +160,7 @@ CORE_EXPECTED_CASES: list[tuple[str, SeriesExprBuilder, str]] = [
     ),
     (
         "ichimoku_lagging_span",
-        lambda: ta.ichimoku_lagging_span(pl.col("close"), period=26),
+        lambda: ta.ichimoku_lagging_span(pl.col("close"), base_line_period=26),
         "ichimoku_lagging_span",
     ),
 ]
@@ -180,7 +180,12 @@ TRUNCATED_CORE_EXPECTED_CASES: list[tuple[str, SeriesExprBuilder, str]] = [
     ),
     (
         "ichimoku_leading_span_b",
-        lambda: ta.ichimoku_leading_span_b(pl.col("high"), pl.col("low"), period=52),
+        lambda: ta.ichimoku_leading_span_b(
+            pl.col("high"),
+            pl.col("low"),
+            period=52,
+            base_line_period=26,
+        ),
         "ichimoku_leading_span_b",
     ),
 ]
