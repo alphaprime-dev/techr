@@ -28,6 +28,35 @@ pub fn find_min(data: &[f64]) -> f64 {
     data.iter().cloned().fold(f64::INFINITY, f64::min)
 }
 
+pub fn rolling_midpoint(highs: &[f64], lows: &[f64], period: usize) -> Vec<Option<f64>> {
+    let len = highs.len();
+    let mut midpoint = vec![None; len];
+
+    if len < period {
+        return midpoint;
+    }
+
+    for i in (period - 1)..len {
+        let max_high = find_max(&highs[i + 1 - period..=i]);
+        let min_low = find_min(&lows[i + 1 - period..=i]);
+        midpoint[i] = Some((max_high + min_low) / 2.0);
+    }
+
+    midpoint
+}
+
+pub fn forward_shift<T>(values: Vec<Option<T>>, period: usize) -> Vec<Option<T>> {
+    let mut shifted: Vec<Option<T>> = (0..values.len() + period - 1).map(|_| None).collect();
+
+    for (idx, value) in values.into_iter().enumerate() {
+        if let Some(value) = value {
+            shifted[idx + period - 1] = Some(value);
+        }
+    }
+
+    shifted
+}
+
 pub fn calc_clv(high: f64, low: f64, close: f64) -> f64 {
     if high == low {
         0.0
@@ -130,6 +159,25 @@ mod tests {
     fn test_find_min() {
         let result = find_min(&vec![1.0, 2.0, 3.0, 4.0, 5.0]);
         assert_eq!(result, 1.0);
+    }
+
+    #[test]
+    fn test_rolling_midpoint() {
+        let highs = vec![10.0, 12.0, 14.0, 16.0, 18.0];
+        let lows = vec![4.0, 6.0, 8.0, 10.0, 12.0];
+
+        let result = rolling_midpoint(&highs, &lows, 3);
+
+        assert_eq!(result, vec![None, None, Some(9.0), Some(11.0), Some(13.0)]);
+    }
+
+    #[test]
+    fn test_forward_shift() {
+        let values = vec![Some(1.0), None, Some(3.0)];
+
+        let result = forward_shift(values, 2);
+
+        assert_eq!(result, vec![None, Some(1.0), None, Some(3.0)]);
     }
 
     #[test]

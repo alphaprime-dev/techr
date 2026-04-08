@@ -1,52 +1,93 @@
-use crate::utils::{find_max, find_min};
+use crate::utils::{forward_shift, rolling_midpoint};
+
+fn leading_span_a_from_lines(
+    conversion_line: &[Option<f64>],
+    base_line: &[Option<f64>],
+    base_line_period: usize,
+) -> Vec<Option<f64>> {
+    let span = conversion_line
+        .iter()
+        .zip(base_line.iter())
+        .map(|(conversion, base)| match (conversion, base) {
+            (Some(conversion), Some(base)) => Some((conversion + base) / 2.0),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+
+    forward_shift(span, base_line_period)
+}
+
+pub fn ichimoku_conversion_line(highs: &[f64], lows: &[f64], period: usize) -> Vec<Option<f64>> {
+    rolling_midpoint(highs, lows, period)
+}
+
+pub fn ichimoku_base_line(highs: &[f64], lows: &[f64], period: usize) -> Vec<Option<f64>> {
+    rolling_midpoint(highs, lows, period)
+}
+
+pub fn ichimoku_lagging_span(closes: &[f64], base_line_period: usize) -> Vec<Option<f64>> {
+    let len = closes.len();
+    let mut lagging_span = vec![None; len];
+
+    if len < base_line_period {
+        return lagging_span;
+    }
+
+    for i in (base_line_period - 1)..len {
+        lagging_span[i + 1 - base_line_period] = Some(closes[i]);
+    }
+
+    lagging_span
+}
+
+pub fn ichimoku_leading_span_a(
+    highs: &[f64],
+    lows: &[f64],
+    conversion_line_period: usize,
+    base_line_period: usize,
+) -> Vec<Option<f64>> {
+    let conversion_line = ichimoku_conversion_line(highs, lows, conversion_line_period);
+    let base_line = ichimoku_base_line(highs, lows, base_line_period);
+    leading_span_a_from_lines(&conversion_line, &base_line, base_line_period)
+}
+
+pub fn ichimoku_leading_span_b(
+    highs: &[f64],
+    lows: &[f64],
+    period: usize,
+    base_line_period: usize,
+) -> Vec<Option<f64>> {
+    forward_shift(rolling_midpoint(highs, lows, period), base_line_period)
+}
 
 pub fn ichimoku(
     highs: &[f64],
     lows: &[f64],
     closes: &[f64],
-    tenkan_period: usize,
-    kijun_period: usize,
-    senkou_b_period: usize,
+    conversion_line_period: usize,
+    base_line_period: usize,
+    leading_span_b_period: usize,
 ) -> (
-    Vec<Option<f64>>, // Tenkan-sen
-    Vec<Option<f64>>, // Kijun-sen
-    Vec<Option<f64>>, // Chikou Span
-    Vec<Option<f64>>, // Senkou Span A
-    Vec<Option<f64>>, // Senkou Span B
+    Vec<Option<f64>>, // Conversion line
+    Vec<Option<f64>>, // Base line
+    Vec<Option<f64>>, // Lagging span
+    Vec<Option<f64>>, // Leading span A
+    Vec<Option<f64>>, // Leading span B
 ) {
-    let len = highs.len();
-    let mut tenkan = vec![None; len];
-    let mut kijun = vec![None; len];
-    let mut chikou = vec![None; len];
-    let mut senkou_a = vec![None; len + kijun_period - 1];
-    let mut senkou_b = vec![None; len + kijun_period - 1];
+    let conversion_line = ichimoku_conversion_line(highs, lows, conversion_line_period);
+    let base_line = ichimoku_base_line(highs, lows, base_line_period);
+    let lagging_span = ichimoku_lagging_span(closes, base_line_period);
+    let leading_span_a = leading_span_a_from_lines(&conversion_line, &base_line, base_line_period);
+    let leading_span_b =
+        ichimoku_leading_span_b(highs, lows, leading_span_b_period, base_line_period);
 
-    for i in 0..len {
-        if i >= tenkan_period - 1 {
-            let max_high = find_max(&highs[i + 1 - tenkan_period..=i]);
-            let min_low = find_min(&lows[i + 1 - tenkan_period..=i]);
-            tenkan[i] = Some((max_high + min_low) / 2.0);
-        }
-
-        if i >= kijun_period - 1 {
-            let max_high = find_max(&highs[i + 1 - kijun_period..=i]);
-            let min_low = find_min(&lows[i + 1 - kijun_period..=i]);
-            kijun[i] = Some((max_high + min_low) / 2.0);
-            chikou[i + 1 - kijun_period] = Some(closes[i]);
-        }
-
-        if let (Some(t), Some(k)) = (tenkan[i], kijun[i]) {
-            senkou_a[i + kijun_period - 1] = Some((t + k) / 2.0);
-        }
-
-        if i >= senkou_b_period - 1 {
-            let max_high = find_max(&highs[i + 1 - senkou_b_period..=i]);
-            let min_low = find_min(&lows[i + 1 - senkou_b_period..=i]);
-            senkou_b[i + kijun_period - 1] = Some((max_high + min_low) / 2.0);
-        }
-    }
-
-    (tenkan, kijun, chikou, senkou_a, senkou_b)
+    (
+        conversion_line,
+        base_line,
+        lagging_span,
+        leading_span_a,
+        leading_span_b,
+    )
 }
 
 #[cfg(test)]
@@ -62,58 +103,58 @@ mod tests {
             let low = testutils::load_data(&format!("../data/{}.json", symbol), "l");
             let close = testutils::load_data(&format!("../data/{}.json", symbol), "c");
 
-            let (tenkan, kijun, chikou, senkou_a, senkou_b) =
+            let (conversion_line, base_line, lagging_span, leading_span_a, leading_span_b) =
                 ichimoku(&high, &low, &close, 9, 26, 52);
 
-            let expected_tenkan = testutils::load_expected::<Option<f64>>(&format!(
-                "../data/expected/ichimoku_tenkan_{}.json",
+            let expected_conversion_line = testutils::load_expected::<Option<f64>>(&format!(
+                "../data/expected/ichimoku_conversion_line_{}.json",
                 symbol
             ));
-            let expected_kijun = testutils::load_expected::<Option<f64>>(&format!(
-                "../data/expected/ichimoku_kijun_{}.json",
+            let expected_base_line = testutils::load_expected::<Option<f64>>(&format!(
+                "../data/expected/ichimoku_base_line_{}.json",
                 symbol
             ));
-            let expected_chikou = testutils::load_expected::<Option<f64>>(&format!(
-                "../data/expected/ichimoku_chikou_{}.json",
+            let expected_lagging_span = testutils::load_expected::<Option<f64>>(&format!(
+                "../data/expected/ichimoku_lagging_span_{}.json",
                 symbol
             ));
-            let expected_senkou_a = testutils::load_expected::<Option<f64>>(&format!(
-                "../data/expected/ichimoku_senkou_A_{}.json",
+            let expected_leading_span_a = testutils::load_expected::<Option<f64>>(&format!(
+                "../data/expected/ichimoku_leading_span_a_{}.json",
                 symbol
             ));
-            let expected_senkou_b = testutils::load_expected::<Option<f64>>(&format!(
-                "../data/expected/ichimoku_senkou_B_{}.json",
+            let expected_leading_span_b = testutils::load_expected::<Option<f64>>(&format!(
+                "../data/expected/ichimoku_leading_span_b_{}.json",
                 symbol
             ));
 
             assert_eq!(
-                round_vec(tenkan, 8),
-                round_vec(expected_tenkan, 8),
-                "Ichimoku Tenkan-sen test failed for symbol {}.",
+                round_vec(conversion_line, 8),
+                round_vec(expected_conversion_line, 8),
+                "Ichimoku conversion line test failed for symbol {}.",
                 symbol
             );
             assert_eq!(
-                round_vec(kijun, 8),
-                round_vec(expected_kijun, 8),
-                "Ichimoku Kijun-sen test failed for symbol {}.",
+                round_vec(base_line, 8),
+                round_vec(expected_base_line, 8),
+                "Ichimoku base line test failed for symbol {}.",
                 symbol
             );
             assert_eq!(
-                round_vec(chikou, 8),
-                round_vec(expected_chikou, 8),
-                "Ichimoku Chikou Span test failed for symbol {}.",
+                round_vec(lagging_span, 8),
+                round_vec(expected_lagging_span, 8),
+                "Ichimoku lagging span test failed for symbol {}.",
                 symbol
             );
             assert_eq!(
-                round_vec(senkou_a, 8),
-                round_vec(expected_senkou_a, 8),
-                "Ichimoku Senkou Span A test failed for symbol {}.",
+                round_vec(leading_span_a, 8),
+                round_vec(expected_leading_span_a, 8),
+                "Ichimoku leading span A test failed for symbol {}.",
                 symbol
             );
             assert_eq!(
-                round_vec(senkou_b, 8),
-                round_vec(expected_senkou_b, 8),
-                "Ichimoku Senkou Span B test failed for symbol {}.",
+                round_vec(leading_span_b, 8),
+                round_vec(expected_leading_span_b, 8),
+                "Ichimoku leading span B test failed for symbol {}.",
                 symbol
             );
         }

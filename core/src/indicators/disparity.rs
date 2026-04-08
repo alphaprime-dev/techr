@@ -1,6 +1,6 @@
 use crate::indicators::sma::sma;
 
-pub fn disp(data: &[f64], period: usize) -> Vec<Option<f64>> {
+pub fn disparity(data: &[f64], period: usize) -> Vec<Option<f64>> {
     let len = data.len();
     let mut result = vec![None; len];
 
@@ -28,20 +28,20 @@ mod tests {
     use crate::utils::round_vec;
 
     #[test]
-    fn test_disp() {
+    fn test_disparity() {
         let test_cases = vec!["005930", "TSLA"];
         for symbol in test_cases {
             let close = testutils::load_data(&format!("../data/{}.json", symbol), "c");
-            let result = disp(&close, 20);
+            let result = disparity(&close, 20);
             let expected = testutils::load_expected::<Option<f64>>(&format!(
-                "../data/expected/disp_{}.json",
+                "../data/expected/disparity_{}.json",
                 symbol
             ));
 
             assert_eq!(
                 round_vec(result, 8),
                 round_vec(expected, 8),
-                "DISP test failed for symbol {}.",
+                "Disparity test failed for symbol {}.",
                 symbol
             );
         }
