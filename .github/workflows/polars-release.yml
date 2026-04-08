@@ -1,0 +1,243 @@
+name: Polars Release
+
+on:
+  push:
+    tags:
+      - "polars-v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check-release:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Check release versions
+        run: |
+          if [[ "${GITHUB_EVENT_NAME}" == "push" ]]; then
+            python polars/scripts/check_versions.py "${GITHUB_REF_NAME}"
+          else
+            python polars/scripts/check_versions.py
+          fi
+
+  build-linux:
+    needs: check-release
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64
+            artifact: wheels-linux-x86_64
+          - target: aarch64
+            artifact: wheels-linux-aarch64
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: astral-sh/setup-uv@v5
+      - name: Build wheel
+        uses: PyO3/maturin-action@v1
+        with:
+          working-directory: polars
+          target: ${{ matrix.target }}
+          manylinux: "2014"
+          sccache: "true"
+          args: --release --out dist
+
+      - name: Check artifact contents
+        run: python polars/scripts/check_artifacts.py polars/dist
+
+      - name: Smoke test x86_64 wheel
+        if: matrix.target == 'x86_64'
+        run: |
+          wheel="$(python - <<'PY'
+          from pathlib import Path
+
+          wheels = sorted(Path('polars/dist').glob('*.whl'))
+          if len(wheels) != 1:
+              raise SystemExit(f"expected exactly one wheel, found {len(wheels)}")
+          print(wheels[0].resolve().as_posix())
+          PY
+          )"
+          uv run --isolated --python 3.13 --with "$wheel" python polars/scripts/smoke_import.py
+
+      - name: Smoke test aarch64 wheel
+        if: matrix.target == 'aarch64'
+        uses: uraimo/run-on-arch-action@v2
+        with:
+          arch: aarch64
+          distro: ubuntu22.04
+          githubToken: ${{ github.token }}
+          install: |
+            apt-get update
+            apt-get install -y --no-install-recommends python3 python3-pip
+            pip3 install -U pip
+          run: |
+            set -e
+            pip3 install polars/dist/*.whl --force-reinstall
+            python3 polars/scripts/smoke_import.py
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: polars/dist/*
+
+  build-macos:
+    needs: check-release
+    runs-on: macos-14
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: astral-sh/setup-uv@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-apple-darwin
+      - name: Build universal2 wheel
+        uses: PyO3/maturin-action@v1
+        with:
+          working-directory: polars
+          sccache: "true"
+          args: --release --out dist --universal2
+
+      - name: Check artifact contents
+        run: python polars/scripts/check_artifacts.py polars/dist
+
+      - name: Smoke test built wheel
+        run: |
+          wheel="$(python - <<'PY'
+          from pathlib import Path
+
+          wheels = sorted(Path('polars/dist').glob('*.whl'))
+          if len(wheels) != 1:
+              raise SystemExit(f"expected exactly one wheel, found {len(wheels)}")
+          print(wheels[0].resolve().as_posix())
+          PY
+          )"
+          uv run --isolated --python 3.13 --with "$wheel" python polars/scripts/smoke_import.py
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-macos-universal2
+          path: polars/dist/*
+
+  build-windows:
+    needs: check-release
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          architecture: "x64"
+      - uses: astral-sh/setup-uv@v5
+      - name: Build wheel
+        uses: PyO3/maturin-action@v1
+        with:
+          working-directory: polars
+          target: x64
+          sccache: "true"
+          args: --release --out dist
+
+      - name: Check artifact contents
+        run: python polars/scripts/check_artifacts.py polars/dist
+
+      - name: Smoke test built wheel
+        run: |
+          wheel="$(python - <<'PY'
+          from pathlib import Path
+
+          wheels = sorted(Path('polars/dist').glob('*.whl'))
+          if len(wheels) != 1:
+              raise SystemExit(f"expected exactly one wheel, found {len(wheels)}")
+          print(wheels[0].resolve().as_posix())
+          PY
+          )"
+          uv run --isolated --python 3.13 --with "$wheel" python polars/scripts/smoke_import.py
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-windows-x64
+          path: polars/dist/*
+
+  build-sdist:
+    needs: check-release
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Build sdist
+        uses: PyO3/maturin-action@v1
+        with:
+          working-directory: polars
+          command: sdist
+          args: --out dist
+
+      - name: Check artifact contents
+        run: python polars/scripts/check_artifacts.py polars/dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-sdist
+          path: polars/dist/*
+
+  publish-testpypi:
+    if: github.event_name == 'workflow_dispatch'
+    needs: [build-linux, build-macos, build-windows, build-sdist]
+    runs-on: ubuntu-latest
+    environment: testpypi
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          packages-dir: dist
+          skip-existing: true
+
+  publish-pypi:
+    if: github.event_name == 'push'
+    needs: [build-linux, build-macos, build-windows, build-sdist]
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist

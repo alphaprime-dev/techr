@@ -1,0 +1,74 @@
+name: Polars CI
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/polars-*.yml"
+      - "Cargo.toml"
+      - "Makefile"
+      - "core/**"
+      - "polars/**"
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/polars-*.yml"
+      - "Cargo.toml"
+      - "Makefile"
+      - "core/**"
+      - "polars/**"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: astral-sh/setup-uv@v5
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Sync polars dependencies
+        working-directory: polars
+        run: uv sync --group dev
+
+      - name: Check package versions
+        run: python polars/scripts/check_versions.py
+
+      - name: Test techr-core
+        run: cargo test -p techr-core
+
+      - name: Build local extension for tests
+        working-directory: polars
+        run: uv run maturin develop --uv
+
+      - name: Test polars package
+        working-directory: polars
+        run: uv run pytest
+
+      - name: Build wheel and sdist
+        working-directory: polars
+        run: uv run maturin build --release --sdist --out dist
+
+      - name: Check artifact contents
+        run: python polars/scripts/check_artifacts.py polars/dist
+
+      - name: Smoke test built wheel
+        run: |
+          wheel="$(python - <<'PY'
+          from pathlib import Path
+
+          wheels = sorted(Path('polars/dist').glob('*.whl'))
+          if len(wheels) != 1:
+              raise SystemExit(f"expected exactly one wheel, found {len(wheels)}")
+          print(wheels[0].resolve().as_posix())
+          PY
+          )"
+          uv run --isolated --python 3.13 --with "$wheel" python polars/scripts/smoke_import.py
