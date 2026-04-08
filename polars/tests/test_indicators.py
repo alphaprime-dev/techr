@@ -277,3 +277,43 @@ def test_multi_input_integer_columns_are_cast_to_float() -> None:
         58.33333333,
         58.33333333,
     ])
+
+
+def test_single_input_null_values_raise_compute_error() -> None:
+    """Reject null values for single-input indicators with a Polars compute error."""
+    # given
+    df = pl.DataFrame({"close": [1.0, None, 3.0]})
+
+    # when / then
+    with pytest.raises(
+        pl.exceptions.ComputeError,
+        match="null values are not supported yet",
+    ):
+        df.select(ta.sma(pl.col("close"), period=2).alias("sma"))
+
+
+def test_multi_input_null_values_raise_compute_error() -> None:
+    """Reject null values for multi-input indicators with a Polars compute error."""
+    # given
+    df = pl.DataFrame(
+        {
+            "high": [11.0, 12.0, None],
+            "low": [1.0, 2.0, 3.0],
+            "close": [6.0, 7.0, 8.0],
+        }
+    )
+
+    # when / then
+    with pytest.raises(
+        pl.exceptions.ComputeError,
+        match="null values are not supported yet",
+    ):
+        df.select(
+            ta.stochf_percent_k(
+                pl.col("high"),
+                pl.col("low"),
+                pl.col("close"),
+                fastk_period=3,
+                fastd_period=2,
+            ).alias("value")
+        )

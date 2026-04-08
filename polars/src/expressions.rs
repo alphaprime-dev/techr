@@ -56,7 +56,14 @@ struct IchimokuLeadingSpanAKwargs {
 
 fn series_to_f64_vec(series: &Series) -> PolarsResult<Vec<f64>> {
     let casted = series.cast(&DataType::Float64)?;
-    Ok(casted.f64()?.to_vec_null_aware().left().unwrap())
+    let values = casted.f64()?.to_vec_null_aware();
+    if let Some(values) = values.left() {
+        Ok(values)
+    } else {
+        Err(PolarsError::ComputeError(
+            "null values are not supported yet".into(),
+        ))
+    }
 }
 
 fn option_vec_to_series(values: Vec<Option<f64>>) -> Series {
