@@ -44,6 +44,10 @@ def strip_root(paths: list[PurePosixPath]) -> list[PurePosixPath]:
     return stripped
 
 
+def has_suffix_path(path: PurePosixPath, suffix: tuple[str, ...]) -> bool:
+    return len(path.parts) >= len(suffix) and path.parts[-len(suffix) :] == suffix
+
+
 def assert_no_banned_entries(path: Path, members: list[PurePosixPath]) -> None:
     for member in members:
         if any(part in BANNED_PARTS for part in member.parts):
@@ -83,11 +87,14 @@ def validate_sdist(path: Path, members: list[PurePosixPath]) -> None:
 
     required_patterns = {
         "polars_techr/*.py": any(
-            member.parent == PurePosixPath("polars_techr") and member.suffix == ".py"
+            member.suffix == ".py"
+            and len(member.parts) >= 2
+            and member.parts[-2] == "polars_techr"
             for member in normalized
         ),
         "src/*.rs": any(
-            member.parent == PurePosixPath("src") and member.suffix == ".rs"
+            member.suffix == ".rs"
+            and has_suffix_path(member.parent, ("src",))
             for member in normalized
         ),
     }
