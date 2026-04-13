@@ -17,14 +17,11 @@ REQUIRED_WHEEL_FILES = {
     PurePosixPath("polars_techr/__init__.py"),
     PurePosixPath("polars_techr/types.py"),
 }
-REQUIRED_SDIST_SUFFIXES = {
-    "pyproject.toml",
-    "Cargo.toml",
-    "README.md",
-    "polars_techr/__init__.py",
-    "polars_techr/types.py",
-    "src/lib.rs",
-    "src/expressions.rs",
+REQUIRED_SDIST_FILES = {
+    PurePosixPath("pyproject.toml"),
+    PurePosixPath("Cargo.toml"),
+    PurePosixPath("README.md"),
+    PurePosixPath("polars_techr/__init__.py"),
 }
 
 
@@ -77,14 +74,30 @@ def validate_wheel(path: Path, members: list[PurePosixPath]) -> None:
 
 
 def validate_sdist(path: Path, members: list[PurePosixPath]) -> None:
-    normalized = [member.as_posix() for member in strip_root(members)]
-    missing = sorted(
-        name for name in REQUIRED_SDIST_SUFFIXES if not any(
-            member == name or member.endswith(f"/{name}") for member in normalized
-        )
+    normalized = strip_root(members)
+    missing_files = sorted(
+        file.as_posix() for file in REQUIRED_SDIST_FILES if file not in normalized
     )
-    if missing:
-        raise ValueError(f"{path.name} is missing files: {', '.join(missing)}")
+    if missing_files:
+        raise ValueError(f"{path.name} is missing files: {', '.join(missing_files)}")
+
+    required_patterns = {
+        "polars_techr/*.py": any(
+            member.parent == PurePosixPath("polars_techr") and member.suffix == ".py"
+            for member in normalized
+        ),
+        "src/*.rs": any(
+            member.parent == PurePosixPath("src") and member.suffix == ".rs"
+            for member in normalized
+        ),
+    }
+    missing_patterns = sorted(
+        pattern for pattern, matched in required_patterns.items() if not matched
+    )
+    if missing_patterns:
+        raise ValueError(
+            f"{path.name} is missing required source patterns: {', '.join(missing_patterns)}"
+        )
 
 
 def main() -> int:
