@@ -2,6 +2,11 @@
 name = "techr-core"
 version = "0.1.0"
 edition = "2021"
+description = "Rust core implementation for techr technical indicators"
+license = "MIT"
+readme = "../README.md"
+homepage = "https://github.com/alphaprime-dev/techr"
+repository = "https://github.com/alphaprime-dev/techr"
 
 [lib]
 name = "techr"

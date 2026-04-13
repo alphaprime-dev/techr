@@ -1,12 +1,28 @@
 [project]
 name = "polars-techr"
-version = "0.1.0"
-description = "Python wrapper for polars-techr"
+dynamic = ["version"]
+description = "Polars expression plugins for techr indicators"
 authors = [{ name = "alphaprime-dev" }]
 requires-python = ">=3.10,<3.14"
 readme = "README.md"
-license = "MIT"
-dependencies = ["polars>=1.26.0"]
+license = { text = "MIT" }
+dependencies = ["polars>=1.39,<2"]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Rust",
+    "Topic :: Scientific/Engineering",
+]
+
+[project.urls]
+Homepage = "https://github.com/alphaprime-dev/techr"
+Repository = "https://github.com/alphaprime-dev/techr"
+Issues = "https://github.com/alphaprime-dev/techr/issues"
 
 [dependency-groups]
 dev = [
@@ -21,7 +37,16 @@ default-groups = "all"
 
 [tool.maturin]
 module-name = "polars_techr._polars_techr"
+python-packages = ["polars_techr"]
+strip = true
+exclude = [
+    ".pytest_cache/**",
+    ".ruff_cache/**",
+    ".venv/**",
+    "polars_techr/__pycache__/**",
+    "tests/__pycache__/**",
+]
 
 [build-system]
-requires = ["maturin>=1.0,<2.0", "polars>=1.7.1"]
+requires = ["maturin>=1.7.1,<2"]
 build-backend = "maturin"
