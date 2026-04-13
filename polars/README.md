@@ -52,6 +52,7 @@ result = df.select(
 - `ichimoku_leading_span_b` uses `period` for the rolling window and `base_line_period` for the forward displacement. The Python wrapper defaults `base_line_period` to `26`.
 - `ichimoku_lagging_span` uses `base_line_period` for its backward displacement.
 - Polars plugins keep the output row-aligned with the input, so `ichimoku_leading_span_a` and `ichimoku_leading_span_b` truncate the forward-projected tail from the core result.
+
 ## Development
 
 ```bash
