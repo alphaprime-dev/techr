@@ -33,7 +33,7 @@ jobs:
 
       - name: Sync polars dependencies
         working-directory: polars
-        run: uv sync --group dev
+        run: uv sync --group dev --no-install-project
 
       - name: Test techr-core
         run: cargo test -p techr-core
