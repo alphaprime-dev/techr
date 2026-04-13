@@ -188,7 +188,6 @@ jobs:
     if: github.event_name == 'workflow_dispatch'
     needs: [build-linux, build-macos, build-windows, build-sdist]
     runs-on: ubuntu-latest
-    environment: testpypi
     permissions:
       contents: read
       id-token: write
@@ -207,7 +206,6 @@ jobs:
     if: github.event_name == 'push'
     needs: [build-linux, build-macos, build-windows, build-sdist]
     runs-on: ubuntu-latest
-    environment: pypi
     permissions:
       contents: read
       id-token: write
