@@ -1,4 +1,4 @@
-use crate::utils::{find_max, find_min};
+use crate::utils::rolling_max_min_indices;
 
 pub fn aroon(highs: &[f64], lows: &[f64], period: usize) -> (Vec<Option<f64>>, Vec<Option<f64>>) {
     let mut aroon_up = vec![None; highs.len()];
@@ -8,14 +8,16 @@ pub fn aroon(highs: &[f64], lows: &[f64], period: usize) -> (Vec<Option<f64>>, V
         return (aroon_up, aroon_down);
     }
 
-    for i in period..highs.len() {
-        let high_slice = &highs[i - period..=i];
-        let low_slice = &lows[i - period..=i];
-        let max_high = find_max(high_slice);
-        let min_low = find_min(low_slice);
+    let window = period + 1;
+    let (max_indices, min_indices) = rolling_max_min_indices(highs, lows, window);
 
-        let max_index = high_slice.iter().rposition(|&x| x == max_high).unwrap();
-        let min_index = low_slice.iter().rposition(|&x| x == min_low).unwrap();
+    for i in period..highs.len() {
+        let window_start = i - period;
+        let (Some(max_index), Some(min_index)) = (max_indices[i], min_indices[i]) else {
+            continue;
+        };
+        let max_index = max_index - window_start;
+        let min_index = min_index - window_start;
 
         let aroon_up_point = (max_index as f64 * 100.0) / period as f64;
         let aroon_down_point = (min_index as f64 * 100.0) / period as f64;

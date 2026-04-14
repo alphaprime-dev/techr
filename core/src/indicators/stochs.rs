@@ -1,4 +1,4 @@
-use crate::utils::{calc_mean, find_max, find_min};
+use crate::utils::{calc_mean, rolling_max_min};
 
 pub fn stochs(
     highs: &[f64],
@@ -16,10 +16,13 @@ pub fn stochs(
         return (percent_k, percent_d);
     }
 
+    let (rolling_highs, rolling_lows) = rolling_max_min(highs, lows, fastk_period);
+
     let mut raw_k = vec![None; len];
     for i in (fastk_period - 1)..len {
-        let max_high = find_max(&highs[i + 1 - fastk_period..=i]);
-        let min_low = find_min(&lows[i + 1 - fastk_period..=i]);
+        let (Some(max_high), Some(min_low)) = (rolling_highs[i], rolling_lows[i]) else {
+            continue;
+        };
 
         raw_k[i] = if max_high == min_low {
             None

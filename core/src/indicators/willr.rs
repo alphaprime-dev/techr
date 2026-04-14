@@ -1,4 +1,4 @@
-use crate::utils::{find_max, find_min};
+use crate::utils::rolling_max_min;
 
 pub fn willr(highs: &[f64], lows: &[f64], closes: &[f64], period: usize) -> Vec<Option<f64>> {
     let len = closes.len();
@@ -8,9 +8,12 @@ pub fn willr(highs: &[f64], lows: &[f64], closes: &[f64], period: usize) -> Vec<
         return result;
     }
 
+    let (rolling_highs, rolling_lows) = rolling_max_min(highs, lows, period);
+
     for i in period - 1..len {
-        let max_high = find_max(&highs[i + 1 - period..=i]);
-        let min_low = find_min(&lows[i + 1 - period..=i]);
+        let (Some(max_high), Some(min_low)) = (rolling_highs[i], rolling_lows[i]) else {
+            continue;
+        };
 
         let cc = closes[i];
         if max_high == min_low {

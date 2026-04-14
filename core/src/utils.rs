@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 pub fn round_scalar(value: f64, decimal_places: u32) -> f64 {
     let factor = 10.0f64.powi(decimal_places as i32);
     (value * factor).round() / factor
@@ -28,21 +30,126 @@ pub fn find_min(data: &[f64]) -> f64 {
     data.iter().cloned().fold(f64::INFINITY, f64::min)
 }
 
-pub fn rolling_midpoint(highs: &[f64], lows: &[f64], period: usize) -> Vec<Option<f64>> {
+pub fn rolling_max_min(
+    highs: &[f64],
+    lows: &[f64],
+    period: usize,
+) -> (Vec<Option<f64>>, Vec<Option<f64>>) {
     let len = highs.len();
-    let mut midpoint = vec![None; len];
+    let mut rolling_max = vec![None; len];
+    let mut rolling_min = vec![None; len];
 
-    if len < period {
-        return midpoint;
+    if len < period || period == 0 {
+        return (rolling_max, rolling_min);
     }
 
-    for i in (period - 1)..len {
-        let max_high = find_max(&highs[i + 1 - period..=i]);
-        let min_low = find_min(&lows[i + 1 - period..=i]);
-        midpoint[i] = Some((max_high + min_low) / 2.0);
+    let mut max_deque = VecDeque::with_capacity(period);
+    let mut min_deque = VecDeque::with_capacity(period);
+
+    for i in 0..len {
+        push_max_index(&mut max_deque, highs, i);
+        push_min_index(&mut min_deque, lows, i);
+
+        if i + 1 < period {
+            continue;
+        }
+
+        let earliest_idx = i + 1 - period;
+        evict_expired(&mut max_deque, earliest_idx);
+        evict_expired(&mut min_deque, earliest_idx);
+
+        rolling_max[i] = max_deque.front().map(|&idx| highs[idx]);
+        rolling_min[i] = min_deque.front().map(|&idx| lows[idx]);
     }
 
-    midpoint
+    (rolling_max, rolling_min)
+}
+
+pub fn rolling_max_min_indices(
+    highs: &[f64],
+    lows: &[f64],
+    period: usize,
+) -> (Vec<Option<usize>>, Vec<Option<usize>>) {
+    let len = highs.len();
+    let mut max_indices = vec![None; len];
+    let mut min_indices = vec![None; len];
+
+    if len < period || period == 0 {
+        return (max_indices, min_indices);
+    }
+
+    let mut max_deque = VecDeque::with_capacity(period);
+    let mut min_deque = VecDeque::with_capacity(period);
+
+    for i in 0..len {
+        push_max_index(&mut max_deque, highs, i);
+        push_min_index(&mut min_deque, lows, i);
+
+        if i + 1 < period {
+            continue;
+        }
+
+        let earliest_idx = i + 1 - period;
+        evict_expired(&mut max_deque, earliest_idx);
+        evict_expired(&mut min_deque, earliest_idx);
+
+        max_indices[i] = max_deque.front().copied();
+        min_indices[i] = min_deque.front().copied();
+    }
+
+    (max_indices, min_indices)
+}
+
+pub fn rolling_midpoint(highs: &[f64], lows: &[f64], period: usize) -> Vec<Option<f64>> {
+    let (rolling_max, rolling_min) = rolling_max_min(highs, lows, period);
+    rolling_max
+        .into_iter()
+        .zip(rolling_min)
+        .map(|(max_high, min_low)| match (max_high, min_low) {
+            (Some(max_high), Some(min_low)) => Some((max_high + min_low) / 2.0),
+            _ => None,
+        })
+        .collect()
+}
+
+fn push_max_index(deque: &mut VecDeque<usize>, data: &[f64], idx: usize) {
+    if data[idx].is_nan() {
+        return;
+    }
+
+    while let Some(&back) = deque.back() {
+        if data[back] <= data[idx] {
+            deque.pop_back();
+        } else {
+            break;
+        }
+    }
+    deque.push_back(idx);
+}
+
+fn push_min_index(deque: &mut VecDeque<usize>, data: &[f64], idx: usize) {
+    if data[idx].is_nan() {
+        return;
+    }
+
+    while let Some(&back) = deque.back() {
+        if data[back] >= data[idx] {
+            deque.pop_back();
+        } else {
+            break;
+        }
+    }
+    deque.push_back(idx);
+}
+
+fn evict_expired(deque: &mut VecDeque<usize>, earliest_idx: usize) {
+    while let Some(&front) = deque.front() {
+        if front < earliest_idx {
+            deque.pop_front();
+        } else {
+            break;
+        }
+    }
 }
 
 pub fn forward_shift<T>(values: Vec<Option<T>>, period: usize) -> Vec<Option<T>> {
@@ -169,6 +276,56 @@ mod tests {
         let result = rolling_midpoint(&highs, &lows, 3);
 
         assert_eq!(result, vec![None, None, Some(9.0), Some(11.0), Some(13.0)]);
+    }
+
+    #[test]
+    fn test_rolling_max_min() {
+        let highs = vec![1.0, 3.0, 2.0, 5.0, 4.0];
+        let lows = vec![5.0, 2.0, 3.0, 1.0, 4.0];
+
+        let (rolling_max, rolling_min) = rolling_max_min(&highs, &lows, 3);
+
+        assert_eq!(
+            rolling_max,
+            vec![None, None, Some(3.0), Some(5.0), Some(5.0)]
+        );
+        assert_eq!(
+            rolling_min,
+            vec![None, None, Some(2.0), Some(1.0), Some(1.0)]
+        );
+    }
+
+    #[test]
+    fn test_rolling_max_min_indices_prefers_latest_duplicate() {
+        let highs = vec![1.0, 5.0, 5.0, 2.0];
+        let lows = vec![4.0, 1.0, 1.0, 3.0];
+
+        let (max_indices, min_indices) = rolling_max_min_indices(&highs, &lows, 3);
+
+        assert_eq!(max_indices, vec![None, None, Some(2), Some(2)]);
+        assert_eq!(min_indices, vec![None, None, Some(2), Some(2)]);
+    }
+
+    #[test]
+    fn test_rolling_max_min_ignores_nan_when_finite_values_exist() {
+        let highs = vec![1.0, f64::NAN, 3.0];
+        let lows = vec![5.0, f64::NAN, 2.0];
+
+        let (rolling_max, rolling_min) = rolling_max_min(&highs, &lows, 2);
+
+        assert_eq!(rolling_max, vec![None, Some(1.0), Some(3.0)]);
+        assert_eq!(rolling_min, vec![None, Some(5.0), Some(2.0)]);
+    }
+
+    #[test]
+    fn test_rolling_max_min_indices_ignore_nan_when_finite_values_exist() {
+        let highs = vec![1.0, f64::NAN, 5.0];
+        let lows = vec![4.0, f64::NAN, 1.0];
+
+        let (max_indices, min_indices) = rolling_max_min_indices(&highs, &lows, 2);
+
+        assert_eq!(max_indices, vec![None, Some(0), Some(2)]);
+        assert_eq!(min_indices, vec![None, Some(0), Some(2)]);
     }
 
     #[test]
