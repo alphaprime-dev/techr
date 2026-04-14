@@ -26,7 +26,7 @@ pub fn bband_lower(data: &[f64], period: usize, sigma: Option<f64>) -> Vec<Optio
     lower_band
 }
 
-pub fn bband_bands(
+fn bband_bands(
     data: &[f64],
     period: usize,
     sigma: Option<f64>,
