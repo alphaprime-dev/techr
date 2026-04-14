@@ -63,14 +63,23 @@ pub fn stoch_percent_d(
     slowk_period: usize,
     slowd_period: usize,
 ) -> Vec<Option<f64>> {
-    let len = closes.len();
+    let percent_k = stoch_percent_k(highs, lows, closes, fastk_period, slowk_period);
+    stoch_percent_d_from_k(&percent_k, fastk_period, slowk_period, slowd_period)
+}
+
+fn stoch_percent_d_from_k(
+    percent_k: &[Option<f64>],
+    fastk_period: usize,
+    slowk_period: usize,
+    slowd_period: usize,
+) -> Vec<Option<f64>> {
+    let len = percent_k.len();
     let mut percent_d = vec![None; len];
 
     if len < fastk_period {
         return percent_d;
     }
 
-    let percent_k = stoch_percent_k(highs, lows, closes, fastk_period, slowk_period);
     for i in (fastk_period + slowk_period + slowd_period - 3)..len {
         let slice = &percent_k[i + 1 - slowd_period..=i];
         let valid_values: Vec<f64> = slice.iter().filter_map(|&x| x).collect();
@@ -93,14 +102,7 @@ pub fn stochs(
     slowd_period: usize,
 ) -> (Vec<Option<f64>>, Vec<Option<f64>>) {
     let percent_k = stoch_percent_k(highs, lows, closes, fastk_period, slowk_period);
-    let percent_d = stoch_percent_d(
-        highs,
-        lows,
-        closes,
-        fastk_period,
-        slowk_period,
-        slowd_period,
-    );
+    let percent_d = stoch_percent_d_from_k(&percent_k, fastk_period, slowk_period, slowd_period);
     (percent_k, percent_d)
 }
 
