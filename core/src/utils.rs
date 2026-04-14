@@ -30,6 +30,10 @@ pub fn find_min(data: &[f64]) -> f64 {
     data.iter().cloned().fold(f64::INFINITY, f64::min)
 }
 
+/// Computes rolling max/min values over paired slices using a monotonic queue.
+///
+/// NaN inputs are skipped. If a full window contains no finite values for one side,
+/// that side returns `None` for the window.
 pub fn rolling_max_min(
     highs: &[f64],
     lows: &[f64],
@@ -65,6 +69,10 @@ pub fn rolling_max_min(
     (rolling_max, rolling_min)
 }
 
+/// Computes rolling max/min source indices over paired slices using a monotonic queue.
+///
+/// Returned indices refer to the original input slices. NaN inputs are skipped, so a
+/// window with no finite values on one side returns `None` for that side.
 pub fn rolling_max_min_indices(
     highs: &[f64],
     lows: &[f64],
@@ -100,6 +108,7 @@ pub fn rolling_max_min_indices(
     (max_indices, min_indices)
 }
 
+/// Computes the midpoint of the rolling high/low channel for each full window.
 pub fn rolling_midpoint(highs: &[f64], lows: &[f64], period: usize) -> Vec<Option<f64>> {
     let (rolling_max, rolling_min) = rolling_max_min(highs, lows, period);
     rolling_max
