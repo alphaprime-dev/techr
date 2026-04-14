@@ -1,4 +1,4 @@
-use crate::utils::{calc_mean, rolling_max_min};
+use crate::utils::{rolling_max_min, rolling_mean_strict};
 
 pub fn stochs(
     highs: &[f64],
@@ -9,11 +9,10 @@ pub fn stochs(
     slowd_period: usize,
 ) -> (Vec<Option<f64>>, Vec<Option<f64>>) {
     let len = closes.len();
-    let mut percent_k = vec![None; len];
-    let mut percent_d = vec![None; len];
+    let empty = vec![None; len];
 
     if len < fastk_period {
-        return (percent_k, percent_d);
+        return (empty.clone(), empty);
     }
 
     let (rolling_highs, rolling_lows) = rolling_max_min(highs, lows, fastk_period);
@@ -30,25 +29,13 @@ pub fn stochs(
             Some(((closes[i] - min_low) / (max_high - min_low)) * 100.0)
         };
     }
-    for i in (fastk_period + slowk_period - 2)..len {
-        let slice = &raw_k[i + 1 - slowk_period..=i];
-        let valid_values: Vec<f64> = slice.iter().filter_map(|&x| x).collect();
-        percent_k[i] = if valid_values.len() == slowk_period {
-            Some(calc_mean(&valid_values))
-        } else {
-            None
-        };
-    }
 
-    for i in (fastk_period + slowk_period + slowd_period - 3)..len {
-        let slice = &percent_k[i + 1 - slowd_period..=i];
-        let valid_values: Vec<f64> = slice.iter().filter_map(|&x| x).collect();
-        percent_d[i] = if valid_values.len() == slowd_period {
-            Some(calc_mean(&valid_values))
-        } else {
-            None
-        };
-    }
+    let percent_k = rolling_mean_strict(&raw_k, slowk_period);
+    let percent_d = if slowd_period == 1 {
+        percent_k.clone()
+    } else {
+        rolling_mean_strict(&percent_k, slowd_period)
+    };
 
     (percent_k, percent_d)
 }

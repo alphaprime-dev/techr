@@ -112,6 +112,39 @@ pub fn rolling_midpoint(highs: &[f64], lows: &[f64], period: usize) -> Vec<Optio
         .collect()
 }
 
+/// Computes a rolling mean that only emits a value when the full window contains `Some` values.
+pub fn rolling_mean_strict(data: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
+    let len = data.len();
+    let mut means = vec![None; len];
+
+    if len < period || period == 0 {
+        return means;
+    }
+
+    let mut sum = 0.0;
+    let mut valid_count = 0usize;
+
+    for i in 0..len {
+        if let Some(value) = data[i] {
+            sum += value;
+            valid_count += 1;
+        }
+
+        if i >= period {
+            if let Some(value) = data[i - period] {
+                sum -= value;
+                valid_count -= 1;
+            }
+        }
+
+        if i >= period - 1 && valid_count == period {
+            means[i] = Some(sum / period as f64);
+        }
+    }
+
+    means
+}
+
 fn push_max_index(deque: &mut VecDeque<usize>, data: &[f64], idx: usize) {
     if data[idx].is_nan() {
         return;
@@ -326,6 +359,29 @@ mod tests {
 
         assert_eq!(max_indices, vec![None, Some(0), Some(2)]);
         assert_eq!(min_indices, vec![None, Some(0), Some(2)]);
+    }
+
+    #[test]
+    fn test_rolling_max_min_all_nan_window_returns_none() {
+        let highs = vec![f64::NAN, f64::NAN, f64::NAN];
+        let lows = vec![f64::NAN, f64::NAN, f64::NAN];
+
+        let (rolling_max, rolling_min) = rolling_max_min(&highs, &lows, 2);
+        let (max_indices, min_indices) = rolling_max_min_indices(&highs, &lows, 2);
+
+        assert_eq!(rolling_max, vec![None, None, None]);
+        assert_eq!(rolling_min, vec![None, None, None]);
+        assert_eq!(max_indices, vec![None, None, None]);
+        assert_eq!(min_indices, vec![None, None, None]);
+    }
+
+    #[test]
+    fn test_rolling_mean_strict() {
+        let data = vec![Some(1.0), Some(3.0), None, Some(5.0), Some(7.0)];
+
+        let means = rolling_mean_strict(&data, 2);
+
+        assert_eq!(means, vec![None, Some(2.0), None, None, Some(6.0)]);
     }
 
     #[test]
