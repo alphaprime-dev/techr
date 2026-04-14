@@ -2,13 +2,17 @@ use polars::prelude::*;
 use pyo3_polars::derive::polars_expr;
 use serde::Deserialize;
 use techr::{
-    bband as techr_bband, disparity as techr_disparity, ema as techr_ema,
+    bband_lower as techr_bband_lower, bband_middle as techr_bband_middle,
+    bband_upper as techr_bband_upper, disparity as techr_disparity, ema as techr_ema,
     ichimoku_base_line as techr_ichimoku_base_line,
     ichimoku_conversion_line as techr_ichimoku_conversion_line,
     ichimoku_lagging_span as techr_ichimoku_lagging_span,
     ichimoku_leading_span_a as techr_ichimoku_leading_span_a,
-    ichimoku_leading_span_b as techr_ichimoku_leading_span_b, macd as techr_macd, sma as techr_sma,
-    stochf as techr_stochf, stochs as techr_stochs, wma as techr_wma,
+    ichimoku_leading_span_b as techr_ichimoku_leading_span_b,
+    macd_histogram as techr_macd_histogram, macd_line as techr_macd_line,
+    macd_signal as techr_macd_signal, sma as techr_sma, stoch_percent_d as techr_stoch_percent_d,
+    stoch_percent_k as techr_stoch_percent_k, stochf_percent_d as techr_stochf_percent_d,
+    stochf_percent_k as techr_stochf_percent_k, wma as techr_wma,
 };
 
 #[derive(Deserialize)]
@@ -116,11 +120,10 @@ fn disparity(inputs: &[Series], kwargs: PeriodKwargs) -> PolarsResult<Series> {
 #[polars_expr(output_type=Float64)]
 fn macd(inputs: &[Series], kwargs: FastSlowKwargs) -> PolarsResult<Series> {
     let input = series_to_f64_vec(&inputs[0])?;
-    let (macd_line, _, _) = techr_macd(
+    let macd_line = techr_macd_line(
         &input,
         kwargs.fast_period as usize,
         kwargs.slow_period as usize,
-        9,
     );
     Ok(option_vec_to_series(macd_line))
 }
@@ -128,7 +131,7 @@ fn macd(inputs: &[Series], kwargs: FastSlowKwargs) -> PolarsResult<Series> {
 #[polars_expr(output_type=Float64)]
 fn macd_signal(inputs: &[Series], kwargs: FastSlowSignalKwargs) -> PolarsResult<Series> {
     let input = series_to_f64_vec(&inputs[0])?;
-    let (_, signal_line, _) = techr_macd(
+    let signal_line = techr_macd_signal(
         &input,
         kwargs.fast_period as usize,
         kwargs.slow_period as usize,
@@ -140,7 +143,7 @@ fn macd_signal(inputs: &[Series], kwargs: FastSlowSignalKwargs) -> PolarsResult<
 #[polars_expr(output_type=Float64)]
 fn macd_hist(inputs: &[Series], kwargs: FastSlowSignalKwargs) -> PolarsResult<Series> {
     let input = series_to_f64_vec(&inputs[0])?;
-    let (_, _, histogram) = techr_macd(
+    let histogram = techr_macd_histogram(
         &input,
         kwargs.fast_period as usize,
         kwargs.slow_period as usize,
@@ -152,21 +155,21 @@ fn macd_hist(inputs: &[Series], kwargs: FastSlowSignalKwargs) -> PolarsResult<Se
 #[polars_expr(output_type=Float64)]
 fn bband_middle(inputs: &[Series], kwargs: PeriodKwargs) -> PolarsResult<Series> {
     let input = series_to_f64_vec(&inputs[0])?;
-    let (_, middle, _) = techr_bband(&input, kwargs.period as usize, None);
+    let middle = techr_bband_middle(&input, kwargs.period as usize);
     Ok(option_vec_to_series(middle))
 }
 
 #[polars_expr(output_type=Float64)]
 fn bband_lower(inputs: &[Series], kwargs: BBandKwargs) -> PolarsResult<Series> {
     let input = series_to_f64_vec(&inputs[0])?;
-    let (_, _, lower) = techr_bband(&input, kwargs.period as usize, Some(kwargs.sigma));
+    let lower = techr_bband_lower(&input, kwargs.period as usize, Some(kwargs.sigma));
     Ok(option_vec_to_series(lower))
 }
 
 #[polars_expr(output_type=Float64)]
 fn bband_upper(inputs: &[Series], kwargs: BBandKwargs) -> PolarsResult<Series> {
     let input = series_to_f64_vec(&inputs[0])?;
-    let (upper, _, _) = techr_bband(&input, kwargs.period as usize, Some(kwargs.sigma));
+    let upper = techr_bband_upper(&input, kwargs.period as usize, Some(kwargs.sigma));
     Ok(option_vec_to_series(upper))
 }
 
@@ -175,13 +178,7 @@ fn stochf_percent_k(inputs: &[Series], kwargs: StochFKwargs) -> PolarsResult<Ser
     let highs = series_to_f64_vec(&inputs[0])?;
     let lows = series_to_f64_vec(&inputs[1])?;
     let closes = series_to_f64_vec(&inputs[2])?;
-    let (percent_k, _) = techr_stochf(
-        &highs,
-        &lows,
-        &closes,
-        kwargs.fastk_period as usize,
-        kwargs.fastd_period as usize,
-    );
+    let percent_k = techr_stochf_percent_k(&highs, &lows, &closes, kwargs.fastk_period as usize);
     Ok(option_vec_to_series(percent_k))
 }
 
@@ -190,10 +187,9 @@ fn stochf_percent_d(inputs: &[Series], kwargs: StochFKwargs) -> PolarsResult<Ser
     let highs = series_to_f64_vec(&inputs[0])?;
     let lows = series_to_f64_vec(&inputs[1])?;
     let closes = series_to_f64_vec(&inputs[2])?;
-    let (_, percent_d) = techr_stochf(
-        &highs,
-        &lows,
-        &closes,
+    let percent_k = techr_stochf_percent_k(&highs, &lows, &closes, kwargs.fastk_period as usize);
+    let percent_d = techr_stochf_percent_d(
+        &percent_k,
         kwargs.fastk_period as usize,
         kwargs.fastd_period as usize,
     );
@@ -205,13 +201,12 @@ fn stoch_percent_k(inputs: &[Series], kwargs: StochKwargs) -> PolarsResult<Serie
     let highs = series_to_f64_vec(&inputs[0])?;
     let lows = series_to_f64_vec(&inputs[1])?;
     let closes = series_to_f64_vec(&inputs[2])?;
-    let (percent_k, _) = techr_stochs(
+    let percent_k = techr_stoch_percent_k(
         &highs,
         &lows,
         &closes,
         kwargs.fastk_period as usize,
         kwargs.slowk_period as usize,
-        kwargs.slowd_period as usize,
     );
     Ok(option_vec_to_series(percent_k))
 }
@@ -221,7 +216,7 @@ fn stoch_percent_d(inputs: &[Series], kwargs: StochKwargs) -> PolarsResult<Serie
     let highs = series_to_f64_vec(&inputs[0])?;
     let lows = series_to_f64_vec(&inputs[1])?;
     let closes = series_to_f64_vec(&inputs[2])?;
-    let (_, percent_d) = techr_stochs(
+    let percent_d = techr_stoch_percent_d(
         &highs,
         &lows,
         &closes,

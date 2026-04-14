@@ -12,7 +12,21 @@ pub fn bband(
     (upper_band, center, lower_band)
 }
 
-fn bband_bands(
+pub fn bband_middle(data: &[f64], period: usize) -> Vec<Option<f64>> {
+    sma(data, period)
+}
+
+pub fn bband_upper(data: &[f64], period: usize, sigma: Option<f64>) -> Vec<Option<f64>> {
+    let (upper_band, _) = bband_bands(data, period, sigma);
+    upper_band
+}
+
+pub fn bband_lower(data: &[f64], period: usize, sigma: Option<f64>) -> Vec<Option<f64>> {
+    let (_, lower_band) = bband_bands(data, period, sigma);
+    lower_band
+}
+
+pub fn bband_bands(
     data: &[f64],
     period: usize,
     sigma: Option<f64>,
