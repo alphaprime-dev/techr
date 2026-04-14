@@ -1,4 +1,4 @@
-use crate::utils::rolling_max_min_indices;
+use crate::utils::rolling_argmax_argmin;
 
 pub fn aroon(highs: &[f64], lows: &[f64], period: usize) -> (Vec<Option<f64>>, Vec<Option<f64>>) {
     let mut aroon_up = vec![None; highs.len()];
@@ -9,7 +9,7 @@ pub fn aroon(highs: &[f64], lows: &[f64], period: usize) -> (Vec<Option<f64>>, V
     }
 
     let window = period + 1;
-    let (max_indices, min_indices) = rolling_max_min_indices(highs, lows, window);
+    let (max_indices, min_indices) = rolling_argmax_argmin(highs, lows, window);
 
     for i in period..highs.len() {
         let window_start = i - period;

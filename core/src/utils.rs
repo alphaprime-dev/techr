@@ -69,11 +69,11 @@ pub fn rolling_max_min(
     (rolling_max, rolling_min)
 }
 
-/// Computes rolling max/min source indices over paired slices using a monotonic queue.
+/// Computes rolling argmax/argmin source indices over paired slices using a monotonic queue.
 ///
 /// Returned indices refer to the original input slices. NaN inputs are skipped, so a
 /// window with no finite values on one side returns `None` for that side.
-pub fn rolling_max_min_indices(
+pub fn rolling_argmax_argmin(
     highs: &[f64],
     lows: &[f64],
     period: usize,
@@ -338,11 +338,11 @@ mod tests {
     }
 
     #[test]
-    fn test_rolling_max_min_indices_prefers_latest_duplicate() {
+    fn test_rolling_argmax_argmin_prefers_latest_duplicate() {
         let highs = vec![1.0, 5.0, 5.0, 2.0];
         let lows = vec![4.0, 1.0, 1.0, 3.0];
 
-        let (max_indices, min_indices) = rolling_max_min_indices(&highs, &lows, 3);
+        let (max_indices, min_indices) = rolling_argmax_argmin(&highs, &lows, 3);
 
         assert_eq!(max_indices, vec![None, None, Some(2), Some(2)]);
         assert_eq!(min_indices, vec![None, None, Some(2), Some(2)]);
@@ -360,11 +360,11 @@ mod tests {
     }
 
     #[test]
-    fn test_rolling_max_min_indices_ignore_nan_when_finite_values_exist() {
+    fn test_rolling_argmax_argmin_ignore_nan_when_finite_values_exist() {
         let highs = vec![1.0, f64::NAN, 5.0];
         let lows = vec![4.0, f64::NAN, 1.0];
 
-        let (max_indices, min_indices) = rolling_max_min_indices(&highs, &lows, 2);
+        let (max_indices, min_indices) = rolling_argmax_argmin(&highs, &lows, 2);
 
         assert_eq!(max_indices, vec![None, Some(0), Some(2)]);
         assert_eq!(min_indices, vec![None, Some(0), Some(2)]);
@@ -376,7 +376,7 @@ mod tests {
         let lows = vec![f64::NAN, f64::NAN, f64::NAN];
 
         let (rolling_max, rolling_min) = rolling_max_min(&highs, &lows, 2);
-        let (max_indices, min_indices) = rolling_max_min_indices(&highs, &lows, 2);
+        let (max_indices, min_indices) = rolling_argmax_argmin(&highs, &lows, 2);
 
         assert_eq!(rolling_max, vec![None, None, None]);
         assert_eq!(rolling_min, vec![None, None, None]);
