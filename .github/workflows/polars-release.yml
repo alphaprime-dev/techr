@@ -11,21 +11,23 @@ permissions:
 
 jobs:
   build-linux:
-    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         include:
           - target: x86_64
             artifact: wheels-linux-x86_64
+            runner: ubuntu-latest
           - target: aarch64
             artifact: wheels-linux-aarch64
+            runner: ubuntu-22.04-arm
+    runs-on: ${{ matrix.runner }}
     defaults:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v6.0.2
-      - uses: actions/setup-python@v6.2.0
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.10"
       - uses: astral-sh/setup-uv@v8.0.0
@@ -56,28 +58,21 @@ jobs:
           )"
           uv run --isolated --python 3.10 --with "$wheel" python polars/scripts/smoke_import.py
 
-      - uses: docker/setup-qemu-action@v4.0.0
-        if: matrix.target == 'aarch64'
-        with:
-          platforms: arm64
-
       - name: Smoke test aarch64 wheel
         if: matrix.target == 'aarch64'
         run: |
-          docker run --rm --platform linux/arm64/v8 \
-            -v "$PWD:/work" \
-            -w /work \
-            ubuntu:22.04 \
-            bash -lc '
-              set -euo pipefail
-              apt-get update
-              apt-get install -y --no-install-recommends python3 python3-pip
-              pip3 install -U pip
-              pip3 install polars/dist/*.whl --force-reinstall
-              python3 polars/scripts/smoke_import.py
-            '
+          wheel="$(python - <<'PY'
+          from pathlib import Path
 
-      - uses: actions/upload-artifact@v7.0.1
+          wheels = sorted(Path('polars/dist').glob('*.whl'))
+          if len(wheels) != 1:
+              raise SystemExit(f"expected exactly one wheel, found {len(wheels)}")
+          print(wheels[0].resolve().as_posix())
+          PY
+          )"
+          uv run --isolated --python 3.10 --with "$wheel" python polars/scripts/smoke_import.py
+
+      - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact }}
           path: polars/dist/*
@@ -88,8 +83,8 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v6.0.2
-      - uses: actions/setup-python@v6.2.0
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.10"
       - uses: astral-sh/setup-uv@v8.0.0
@@ -122,7 +117,7 @@ jobs:
           )"
           uv run --isolated --python 3.10 --with "$wheel" python polars/scripts/smoke_import.py
 
-      - uses: actions/upload-artifact@v7.0.1
+      - uses: actions/upload-artifact@v7
         with:
           name: wheels-macos-universal2
           path: polars/dist/*
@@ -133,8 +128,8 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v6.0.2
-      - uses: actions/setup-python@v6.2.0
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.10"
           architecture: "x64"
@@ -164,7 +159,7 @@ jobs:
           )"
           uv run --isolated --python 3.10 --with "$wheel" python polars/scripts/smoke_import.py
 
-      - uses: actions/upload-artifact@v7.0.1
+      - uses: actions/upload-artifact@v7
         with:
           name: wheels-windows-x64
           path: polars/dist/*
@@ -175,8 +170,8 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v6.0.2
-      - uses: actions/setup-python@v6.2.0
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.10"
       - name: Build sdist
@@ -190,7 +185,7 @@ jobs:
       - name: Check artifact contents
         run: python polars/scripts/check_artifacts.py polars/dist
 
-      - uses: actions/upload-artifact@v7.0.1
+      - uses: actions/upload-artifact@v7
         with:
           name: wheels-sdist
           path: polars/dist/*
@@ -203,7 +198,7 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/download-artifact@v8.0.1
+      - uses: actions/download-artifact@v8
         with:
           path: dist
           merge-multiple: true
@@ -221,7 +216,7 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/download-artifact@v8.0.1
+      - uses: actions/download-artifact@v8
         with:
           path: dist
           merge-multiple: true
