@@ -1,22 +1,18 @@
 use crate::utils::{calc_mean, find_max, find_min};
 
-pub fn stochs(
+fn stochs_raw_k(
     highs: &[f64],
     lows: &[f64],
     closes: &[f64],
     fastk_period: usize,
-    slowk_period: usize,
-    slowd_period: usize,
-) -> (Vec<Option<f64>>, Vec<Option<f64>>) {
+) -> Vec<Option<f64>> {
     let len = closes.len();
-    let mut percent_k = vec![None; len];
-    let mut percent_d = vec![None; len];
+    let mut raw_k = vec![None; len];
 
     if len < fastk_period {
-        return (percent_k, percent_d);
+        return raw_k;
     }
 
-    let mut raw_k = vec![None; len];
     for i in (fastk_period - 1)..len {
         let max_high = find_max(&highs[i + 1 - fastk_period..=i]);
         let min_low = find_min(&lows[i + 1 - fastk_period..=i]);
@@ -27,6 +23,25 @@ pub fn stochs(
             Some(((closes[i] - min_low) / (max_high - min_low)) * 100.0)
         };
     }
+
+    raw_k
+}
+
+pub fn stoch_percent_k(
+    highs: &[f64],
+    lows: &[f64],
+    closes: &[f64],
+    fastk_period: usize,
+    slowk_period: usize,
+) -> Vec<Option<f64>> {
+    let len = closes.len();
+    let mut percent_k = vec![None; len];
+
+    if len < fastk_period {
+        return percent_k;
+    }
+
+    let raw_k = stochs_raw_k(highs, lows, closes, fastk_period);
     for i in (fastk_period + slowk_period - 2)..len {
         let slice = &raw_k[i + 1 - slowk_period..=i];
         let valid_values: Vec<f64> = slice.iter().filter_map(|&x| x).collect();
@@ -35,6 +50,34 @@ pub fn stochs(
         } else {
             None
         };
+    }
+
+    percent_k
+}
+
+pub fn stoch_percent_d(
+    highs: &[f64],
+    lows: &[f64],
+    closes: &[f64],
+    fastk_period: usize,
+    slowk_period: usize,
+    slowd_period: usize,
+) -> Vec<Option<f64>> {
+    let percent_k = stoch_percent_k(highs, lows, closes, fastk_period, slowk_period);
+    stoch_percent_d_from_k(&percent_k, fastk_period, slowk_period, slowd_period)
+}
+
+fn stoch_percent_d_from_k(
+    percent_k: &[Option<f64>],
+    fastk_period: usize,
+    slowk_period: usize,
+    slowd_period: usize,
+) -> Vec<Option<f64>> {
+    let len = percent_k.len();
+    let mut percent_d = vec![None; len];
+
+    if len < fastk_period {
+        return percent_d;
     }
 
     for i in (fastk_period + slowk_period + slowd_period - 3)..len {
@@ -47,6 +90,19 @@ pub fn stochs(
         };
     }
 
+    percent_d
+}
+
+pub fn stochs(
+    highs: &[f64],
+    lows: &[f64],
+    closes: &[f64],
+    fastk_period: usize,
+    slowk_period: usize,
+    slowd_period: usize,
+) -> (Vec<Option<f64>>, Vec<Option<f64>>) {
+    let percent_k = stoch_percent_k(highs, lows, closes, fastk_period, slowk_period);
+    let percent_d = stoch_percent_d_from_k(&percent_k, fastk_period, slowk_period, slowd_period);
     (percent_k, percent_d)
 }
 
