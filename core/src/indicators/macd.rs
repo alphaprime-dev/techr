@@ -22,6 +22,39 @@ pub fn macd(
     (macd_line, signal_line, histogram)
 }
 
+pub fn macd_line(data: &[f64], fast_period: usize, slow_period: usize) -> Vec<Option<f64>> {
+    calc_macd_line(data, fast_period, slow_period)
+}
+
+pub fn macd_signal(
+    data: &[f64],
+    fast_period: usize,
+    slow_period: usize,
+    signal_period: usize,
+) -> Vec<Option<f64>> {
+    let macd_line = calc_macd_line(data, fast_period, slow_period);
+    calc_macd_signal(&macd_line, signal_period)
+}
+
+pub fn macd_histogram(
+    data: &[f64],
+    fast_period: usize,
+    slow_period: usize,
+    signal_period: usize,
+) -> Vec<Option<f64>> {
+    let macd_line = calc_macd_line(data, fast_period, slow_period);
+    let signal_line = calc_macd_signal(&macd_line, signal_period);
+
+    macd_line
+        .iter()
+        .zip(signal_line.iter())
+        .map(|(&macd, &signal)| match (macd, signal) {
+            (Some(m), Some(s)) => Some(m - s),
+            _ => None,
+        })
+        .collect()
+}
+
 fn calc_macd_line(data: &[f64], fast_period: usize, slow_period: usize) -> Vec<Option<f64>> {
     let mut macd_line = vec![None; data.len()];
 
