@@ -75,22 +75,37 @@ fn calc_macd_line(data: &[f64], fast_period: usize, slow_period: usize) -> Vec<O
 }
 
 fn calc_macd_signal(macd_line: &[Option<f64>], signal_period: usize) -> Vec<Option<f64>> {
-    let mut signal_line: Vec<Option<f64>> = vec![None; macd_line.len()];
-    let null_count = macd_line.iter().take_while(|&&x| x.is_none()).count();
-    let macd_values: Vec<f64> = macd_line
-        .iter()
-        .skip(null_count)
-        .filter_map(|&x| x)
-        .collect();
-    let ema_values = ema(&macd_values, signal_period);
+    let mut signal_line = vec![None; macd_line.len()];
+    let Some(first_valid_idx) = macd_line.iter().position(|value| value.is_some()) else {
+        return signal_line;
+    };
 
-    for i in 0..ema_values.len() {
-        if let Some(ema_value) = ema_values[i] {
-            signal_line[i + null_count] = Some(ema_value);
-        }
+    let valid_len = macd_line.len() - first_valid_idx;
+    if signal_period == 0 || valid_len < signal_period {
+        return signal_line;
+    }
+
+    let first_signal_idx = first_valid_idx + signal_period - 1;
+    let mut signal = mean_macd_window(macd_line, first_valid_idx, signal_period);
+    let alpha = 2.0 / (signal_period as f64 + 1.0);
+
+    signal_line[first_signal_idx] = Some(signal);
+
+    for (idx, value) in macd_line.iter().enumerate().skip(first_signal_idx + 1) {
+        let macd = value.expect("macd_line becomes contiguous after the first valid value");
+        signal = alpha * macd + (1.0 - alpha) * signal;
+        signal_line[idx] = Some(signal);
     }
 
     signal_line
+}
+
+fn mean_macd_window(macd_line: &[Option<f64>], start_idx: usize, period: usize) -> f64 {
+    macd_line[start_idx..start_idx + period]
+        .iter()
+        .map(|value| value.expect("initial signal window must be fully populated"))
+        .sum::<f64>()
+        / period as f64
 }
 
 #[cfg(test)]
