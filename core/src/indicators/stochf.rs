@@ -1,4 +1,4 @@
-use crate::utils::{calc_mean, find_max, find_min};
+use crate::utils::{rolling_max_min, rolling_mean_strict};
 
 pub fn stochf_percent_k(
     highs: &[f64],
@@ -13,9 +13,12 @@ pub fn stochf_percent_k(
         return percent_k;
     }
 
+    let (rolling_highs, rolling_lows) = rolling_max_min(highs, lows, fastk_period);
+
     for i in (fastk_period - 1)..len {
-        let max_high = find_max(&highs[i + 1 - fastk_period..=i]);
-        let min_low = find_min(&lows[i + 1 - fastk_period..=i]);
+        let (Some(max_high), Some(min_low)) = (rolling_highs[i], rolling_lows[i]) else {
+            continue;
+        };
 
         percent_k[i] = if max_high == min_low {
             None
@@ -33,27 +36,16 @@ pub fn stochf_percent_d(
     fastd_period: usize,
 ) -> Vec<Option<f64>> {
     let len = percent_k.len();
-    let mut percent_d = vec![None; len];
 
     if len < fastk_period {
-        return percent_d;
+        return vec![None; len];
     }
 
-    for i in (fastk_period - 1)..len {
-        if fastd_period == 1 {
-            percent_d[i] = percent_k[i];
-        } else if i >= fastk_period - 1 + (fastd_period - 1) {
-            let slice = &percent_k[i + 1 - fastd_period..=i];
-            let valid_values: Vec<f64> = slice.iter().filter_map(|&x| x).collect();
-            percent_d[i] = if valid_values.len() == fastd_period {
-                Some(calc_mean(&valid_values))
-            } else {
-                None
-            };
-        }
+    if fastd_period == 1 {
+        percent_k.to_vec()
+    } else {
+        rolling_mean_strict(percent_k, fastd_period)
     }
-
-    percent_d
 }
 
 pub fn stochf(

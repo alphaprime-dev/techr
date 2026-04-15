@@ -1,5 +1,5 @@
 use crate::indicators::rsi;
-use crate::utils::{calc_mean, find_max, find_min};
+use crate::utils::{rolling_max_min, rolling_mean_strict};
 
 pub fn stochrsi(
     closes: &[f64],
@@ -9,44 +9,47 @@ pub fn stochrsi(
 ) -> (Vec<Option<f64>>, Vec<Option<f64>>) {
     let len = closes.len();
     let mut percent_k = vec![None; len];
-    let mut percent_d = vec![None; len];
 
     if len < period_rsi + period_k || period_rsi <= 1 || period_k <= 1 {
-        return (percent_k, percent_d);
+        return (percent_k, vec![None; len]);
     }
 
     let rsi_values = rsi(closes, period_rsi);
+    let rsi_values_with_nan: Vec<f64> = rsi_values
+        .iter()
+        .map(|value| value.unwrap_or(f64::NAN))
+        .collect();
+    let (rolling_max, rolling_min) =
+        rolling_max_min(&rsi_values_with_nan, &rsi_values_with_nan, period_k);
 
     for i in (period_rsi + period_k - 1)..len {
-        let slice = &rsi_values[i + 1 - period_k..=i];
-        let valid_values: Vec<f64> = slice.iter().filter_map(|&x| x).collect();
+        let valid_values: Vec<f64> = rsi_values[i + 1 - period_k..=i]
+            .iter()
+            .filter_map(|&x| x)
+            .collect();
 
-        if valid_values.len() == period_k {
-            let rsi_max = find_max(&valid_values);
-            let rsi_min = find_min(&valid_values);
-
-            let k = if rsi_max == rsi_min {
-                None
-            } else {
-                rsi_values[i].map(|rsi| ((rsi - rsi_min) / (rsi_max - rsi_min)) * 100.0)
-            };
-
-            percent_k[i] = k;
-
-            if period_d == 1 {
-                percent_d[i] = k;
-            } else if i >= period_rsi + period_k - 1 + (period_d - 1) {
-                let d_slice = &percent_k[i + 1 - period_d..=i];
-                let valid_d_values: Vec<f64> = d_slice.iter().filter_map(|&x| x).collect();
-                let d = if valid_d_values.len() == period_d {
-                    Some(calc_mean(&valid_d_values))
-                } else {
-                    None
-                };
-                percent_d[i] = d;
-            }
+        if valid_values.len() != period_k {
+            continue;
         }
+
+        let (Some(rsi), Some(rsi_max), Some(rsi_min)) =
+            (rsi_values[i], rolling_max[i], rolling_min[i])
+        else {
+            continue;
+        };
+
+        percent_k[i] = if rsi_max == rsi_min {
+            None
+        } else {
+            Some(((rsi - rsi_min) / (rsi_max - rsi_min)) * 100.0)
+        };
     }
+
+    let percent_d = if period_d == 1 {
+        percent_k.clone()
+    } else {
+        rolling_mean_strict(&percent_k, period_d)
+    };
 
     (percent_k, percent_d)
 }

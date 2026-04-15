@@ -1,4 +1,4 @@
-use crate::utils::{calc_mean, find_max, find_min};
+use crate::utils::{rolling_max_min, rolling_mean_strict};
 
 fn stochs_raw_k(
     highs: &[f64],
@@ -13,9 +13,12 @@ fn stochs_raw_k(
         return raw_k;
     }
 
+    let (rolling_highs, rolling_lows) = rolling_max_min(highs, lows, fastk_period);
+
     for i in (fastk_period - 1)..len {
-        let max_high = find_max(&highs[i + 1 - fastk_period..=i]);
-        let min_low = find_min(&lows[i + 1 - fastk_period..=i]);
+        let (Some(max_high), Some(min_low)) = (rolling_highs[i], rolling_lows[i]) else {
+            continue;
+        };
 
         raw_k[i] = if max_high == min_low {
             None
@@ -35,24 +38,13 @@ pub fn stoch_percent_k(
     slowk_period: usize,
 ) -> Vec<Option<f64>> {
     let len = closes.len();
-    let mut percent_k = vec![None; len];
 
     if len < fastk_period {
-        return percent_k;
+        return vec![None; len];
     }
 
     let raw_k = stochs_raw_k(highs, lows, closes, fastk_period);
-    for i in (fastk_period + slowk_period - 2)..len {
-        let slice = &raw_k[i + 1 - slowk_period..=i];
-        let valid_values: Vec<f64> = slice.iter().filter_map(|&x| x).collect();
-        percent_k[i] = if valid_values.len() == slowk_period {
-            Some(calc_mean(&valid_values))
-        } else {
-            None
-        };
-    }
-
-    percent_k
+    rolling_mean_strict(&raw_k, slowk_period)
 }
 
 pub fn stoch_percent_d(
@@ -70,27 +62,20 @@ pub fn stoch_percent_d(
 fn stoch_percent_d_from_k(
     percent_k: &[Option<f64>],
     fastk_period: usize,
-    slowk_period: usize,
+    _slowk_period: usize,
     slowd_period: usize,
 ) -> Vec<Option<f64>> {
     let len = percent_k.len();
-    let mut percent_d = vec![None; len];
 
     if len < fastk_period {
-        return percent_d;
+        return vec![None; len];
     }
 
-    for i in (fastk_period + slowk_period + slowd_period - 3)..len {
-        let slice = &percent_k[i + 1 - slowd_period..=i];
-        let valid_values: Vec<f64> = slice.iter().filter_map(|&x| x).collect();
-        percent_d[i] = if valid_values.len() == slowd_period {
-            Some(calc_mean(&valid_values))
-        } else {
-            None
-        };
+    if slowd_period == 1 {
+        percent_k.to_vec()
+    } else {
+        rolling_mean_strict(percent_k, slowd_period)
     }
-
-    percent_d
 }
 
 pub fn stochs(

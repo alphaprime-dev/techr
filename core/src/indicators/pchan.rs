@@ -1,4 +1,4 @@
-use crate::utils::{find_max, find_min};
+use crate::utils::rolling_max_min;
 
 pub fn pchan(
     highs: &[f64],
@@ -10,13 +10,17 @@ pub fn pchan(
     let mut lower = vec![None; len];
     let mut middle = vec![None; len];
 
-    if len < period {
+    if period == 0 || len < period {
         return (upper, middle, lower);
     }
 
+    let (rolling_highs, rolling_lows) =
+        rolling_max_min(&highs[..len - 1], &lows[..len - 1], period);
+
     for i in period..len {
-        let max_high = find_max(&highs[i - period..i]);
-        let min_low = find_min(&lows[i - period..i]);
+        let (Some(max_high), Some(min_low)) = (rolling_highs[i - 1], rolling_lows[i - 1]) else {
+            continue;
+        };
 
         upper[i] = Some(max_high);
         lower[i] = Some(min_low);
