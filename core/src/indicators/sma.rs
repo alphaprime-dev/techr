@@ -1,3 +1,7 @@
+/// Computes a simple moving average over a dense `f64` series.
+///
+/// The returned vector keeps the same length as the input and emits `None`
+/// until the first full `period` window has been observed.
 pub fn sma(data: &[f64], period: usize) -> Vec<Option<f64>> {
     let mut sma = vec![None; data.len()];
     let mut sum = 0.0;
@@ -19,6 +23,12 @@ pub fn sma(data: &[f64], period: usize) -> Vec<Option<f64>> {
     sma
 }
 
+/// Computes an SMA over an aligned optional series.
+///
+/// The input is expected to contain an optional prefix of `None` values followed
+/// by a contiguous run of `Some(f64)` values. The returned vector preserves the
+/// original alignment while avoiding the extra compaction/remapping pass that
+/// would otherwise be needed before applying `sma`.
 pub(crate) fn sma_aligned(data: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
     let mut result = vec![None; data.len()];
     let Some(first_valid_idx) = data.iter().position(|value| value.is_some()) else {
@@ -56,9 +66,13 @@ mod tests {
     use crate::testutils;
     use crate::utils::round_vec;
 
+    /// Verifies the standard SMA output against fixture data.
     #[test]
     fn test_sma() {
+        // Given
         let test_cases = vec!["005930", "TSLA"];
+
+        // When
         for symbol in test_cases {
             let input = testutils::load_data(&format!("../data/{}.json", symbol), "c");
             let result = sma(&input, 20);
@@ -67,6 +81,7 @@ mod tests {
                 symbol
             ));
 
+            // Then
             assert_eq!(
                 round_vec(result, 8),
                 expected,
@@ -74,5 +89,19 @@ mod tests {
                 symbol
             );
         }
+    }
+
+    /// Verifies that aligned SMA preserves offsets while matching dense SMA values.
+    #[test]
+    fn test_sma_aligned() {
+        // Given
+        let aligned = vec![None, None, Some(1.0), Some(2.0), Some(3.0), Some(4.0)];
+        let expected = vec![None, None, None, Some(1.5), Some(2.5), Some(3.5)];
+
+        // When
+        let result = sma_aligned(&aligned, 2);
+
+        // Then
+        assert_eq!(result, expected);
     }
 }

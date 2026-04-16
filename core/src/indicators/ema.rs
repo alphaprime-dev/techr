@@ -1,3 +1,7 @@
+/// Computes an exponential moving average over a dense `f64` series.
+///
+/// The returned vector keeps the same length as the input and emits `None`
+/// until the first full `period` window has been observed.
 pub fn ema(data: &[f64], period: usize) -> Vec<Option<f64>> {
     let mut result = vec![None; data.len()];
 
@@ -18,38 +22,44 @@ pub fn ema(data: &[f64], period: usize) -> Vec<Option<f64>> {
     result
 }
 
+/// Computes an EMA over an optional series while preserving original alignment.
+///
+/// The EMA state advances only on `Some(f64)` values, so interior `None` holes
+/// are skipped safely. This lets callers avoid compacting a sparse aligned
+/// series into a temporary dense vector before applying `ema`.
 pub(crate) fn ema_aligned(data: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
     let mut result = vec![None; data.len()];
-    let Some(first_valid_idx) = data.iter().position(|value| value.is_some()) else {
-        return result;
-    };
-
-    let valid_len = data.len() - first_valid_idx;
-    if period == 0 || valid_len < period {
+    if period == 0 {
         return result;
     }
 
-    let first_signal_idx = first_valid_idx + period - 1;
     let alpha = 2.0 / (period as f64 + 1.0);
-    let mut ema = mean_window(data, first_valid_idx, period);
+    let mut seeded_count = 0usize;
+    let mut seed_sum = 0.0;
+    let mut ema = None;
 
-    result[first_signal_idx] = Some(ema);
+    for (idx, value) in data.iter().enumerate() {
+        let Some(value) = value else {
+            continue;
+        };
 
-    for (idx, value) in data.iter().enumerate().skip(first_signal_idx + 1) {
-        let value = value.expect("aligned EMA input must be contiguous after the first value");
-        ema = alpha * value + (1.0 - alpha) * ema;
-        result[idx] = Some(ema);
+        if let Some(current_ema) = ema {
+            let next_ema = alpha * value + (1.0 - alpha) * current_ema;
+            ema = Some(next_ema);
+            result[idx] = Some(next_ema);
+            continue;
+        }
+
+        seed_sum += value;
+        seeded_count += 1;
+        if seeded_count == period {
+            let initial_ema = seed_sum / period as f64;
+            ema = Some(initial_ema);
+            result[idx] = Some(initial_ema);
+        }
     }
 
     result
-}
-
-fn mean_window(data: &[Option<f64>], start_idx: usize, period: usize) -> f64 {
-    data[start_idx..start_idx + period]
-        .iter()
-        .map(|value| value.expect("initial EMA window must be fully populated"))
-        .sum::<f64>()
-        / period as f64
 }
 
 #[cfg(test)]
@@ -58,9 +68,13 @@ mod tests {
     use crate::testutils;
     use crate::utils::round_vec;
 
+    /// Verifies the standard EMA output against fixture data.
     #[test]
     fn test_ema() {
+        // Given
         let test_cases = vec!["005930", "TSLA"];
+
+        // When
         for symbol in test_cases {
             let input = testutils::load_data(&format!("../data/{}.json", symbol), "c");
             let result = ema(&input, 20);
@@ -69,6 +83,7 @@ mod tests {
                 symbol
             ));
 
+            // Then
             assert_eq!(
                 round_vec(result, 8),
                 round_vec(expected, 8),
@@ -76,5 +91,41 @@ mod tests {
                 symbol
             );
         }
+    }
+
+    /// Verifies that aligned EMA preserves offsets while matching dense EMA values.
+    #[test]
+    fn test_ema_aligned() {
+        // Given
+        let aligned = vec![None, None, Some(1.0), Some(2.0), Some(3.0), Some(4.0)];
+        let expected = vec![None, None, None, Some(1.5), Some(2.5), Some(3.5)];
+
+        // When
+        let result = ema_aligned(&aligned, 2);
+
+        // Then
+        assert_eq!(result, expected);
+    }
+
+    /// Verifies that aligned EMA skips interior gaps without panicking.
+    #[test]
+    fn test_ema_aligned_with_interior_gaps() {
+        // Given
+        let aligned = vec![
+            None,
+            None,
+            Some(1.0),
+            Some(2.0),
+            None,
+            Some(3.0),
+            Some(4.0),
+        ];
+        let expected = vec![None, None, None, Some(1.5), None, Some(2.5), Some(3.5)];
+
+        // When
+        let result = ema_aligned(&aligned, 2);
+
+        // Then
+        assert_eq!(result, expected);
     }
 }

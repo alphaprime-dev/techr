@@ -53,8 +53,12 @@ mod tests {
     use crate::utils::round_vec;
 
     #[test]
+    /// Verifies the standard PVO output against fixture data.
     fn test_pvo() {
+        // Given
         let test_cases = vec!["005930", "TSLA"];
+
+        // When
         for symbol in test_cases {
             let input = testutils::load_data(&format!("../data/{}.json", symbol), "v");
             let (pvo_line, signal_line, histogram) = pvo(&input, 12, 26, 9);
@@ -72,6 +76,7 @@ mod tests {
                 symbol
             ));
 
+            // Then
             assert_eq!(
                 round_vec(pvo_line, 8),
                 round_vec(expected_pvo, 8),
