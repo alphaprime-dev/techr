@@ -6,10 +6,8 @@ pub fn pvo(
     slow_period: usize,
     signal_period: usize,
 ) -> (Vec<Option<f64>>, Vec<Option<f64>>, Vec<Option<f64>>) {
-    let pvo_line = calc_pvo_line(data, fast_period, slow_period);
-    let signal_line = calc_pvo_signal(&pvo_line, signal_period);
-
-    // Calculate the histogram
+    let pvo_line = pvo_line(data, fast_period, slow_period);
+    let signal_line = ema_aligned(&pvo_line, signal_period);
     let histogram = pvo_line
         .iter()
         .zip(signal_line.iter())
@@ -22,7 +20,35 @@ pub fn pvo(
     (pvo_line, signal_line, histogram)
 }
 
-fn calc_pvo_line(data: &[f64], fast_period: usize, slow_period: usize) -> Vec<Option<f64>> {
+pub fn pvo_histogram(
+    data: &[f64],
+    fast_period: usize,
+    slow_period: usize,
+    signal_period: usize,
+) -> Vec<Option<f64>> {
+    let pvo_line = pvo_line(data, fast_period, slow_period);
+    let signal_line = ema_aligned(&pvo_line, signal_period);
+    pvo_line
+        .iter()
+        .zip(signal_line.iter())
+        .map(|(&pvo, &signal)| match (pvo, signal) {
+            (Some(p), Some(s)) => Some(p - s),
+            _ => None,
+        })
+        .collect()
+}
+
+pub fn pvo_signal(
+    data: &[f64],
+    fast_period: usize,
+    slow_period: usize,
+    signal_period: usize,
+) -> Vec<Option<f64>> {
+    let pvo_line = pvo_line(data, fast_period, slow_period);
+    ema_aligned(&pvo_line, signal_period)
+}
+
+pub fn pvo_line(data: &[f64], fast_period: usize, slow_period: usize) -> Vec<Option<f64>> {
     let mut pvo_line = vec![None; data.len()];
 
     if data.len() < slow_period || fast_period >= slow_period {
@@ -43,17 +69,14 @@ fn calc_pvo_line(data: &[f64], fast_period: usize, slow_period: usize) -> Vec<Op
     pvo_line
 }
 
-fn calc_pvo_signal(pvo_line: &[Option<f64>], signal_period: usize) -> Vec<Option<f64>> {
-    ema_aligned(pvo_line, signal_period)
-}
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::testutils;
     use crate::utils::round_vec;
 
-    #[test]
     /// Verifies the standard PVO output against fixture data.
+    #[test]
     fn test_pvo() {
         // Given
         let test_cases = vec!["005930", "TSLA"];

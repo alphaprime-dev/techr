@@ -6,11 +6,27 @@ pub fn sonar(
     step: usize,
     signal_period: usize,
 ) -> (Vec<Option<f64>>, Vec<Option<f64>>) {
+    let sonar_line = sonar_line(data, period, step);
+    let signal_line = ema_aligned(&sonar_line, signal_period);
+
+    (sonar_line, signal_line)
+}
+
+pub fn sonar_signal(
+    data: &[f64],
+    period: usize,
+    step: usize,
+    signal_period: usize,
+) -> Vec<Option<f64>> {
+    let sonar_line = sonar_line(data, period, step);
+    ema_aligned(&sonar_line, signal_period)
+}
+
+pub fn sonar_line(data: &[f64], period: usize, step: usize) -> Vec<Option<f64>> {
     let mut sonar_line = vec![None; data.len()];
-    let mut signal_line = vec![None; data.len()];
 
     if data.len() < period + step {
-        return (sonar_line, signal_line);
+        return sonar_line;
     }
 
     let ema_values = ema(data, period);
@@ -21,9 +37,7 @@ pub fn sonar(
         }
     }
 
-    signal_line = ema_aligned(&sonar_line, signal_period);
-
-    (sonar_line, signal_line)
+    sonar_line
 }
 
 #[cfg(test)]
@@ -32,9 +46,13 @@ mod tests {
     use crate::testutils;
     use crate::utils::round_vec;
 
+    /// Verifies the standard SONAR outputs against fixture data.
     #[test]
     fn test_sonar() {
+        // Given
         let test_cases = vec!["005930", "TSLA"];
+
+        // When
         for symbol in test_cases {
             let input = testutils::load_data(&format!("../data/{}.json", symbol), "c");
             let (sonar_line, signal_line) = sonar(&input, 9, 6, 5);
@@ -48,6 +66,7 @@ mod tests {
                 symbol
             ));
 
+            // Then
             assert_eq!(
                 round_vec(sonar_line, 8),
                 round_vec(expected_sonar, 8),

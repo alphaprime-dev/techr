@@ -7,12 +7,34 @@ pub fn massi(
     period_sum: usize,
     period_signal: usize,
 ) -> (Vec<Option<f64>>, Vec<Option<f64>>) {
+    let mass = massi_line(highs, lows, period_ema, period_sum);
+    let signal = ema_aligned(&mass, period_signal);
+
+    (mass, signal)
+}
+
+pub fn massi_signal(
+    highs: &[f64],
+    lows: &[f64],
+    period_ema: usize,
+    period_sum: usize,
+    period_signal: usize,
+) -> Vec<Option<f64>> {
+    let mass = massi_line(highs, lows, period_ema, period_sum);
+    ema_aligned(&mass, period_signal)
+}
+
+pub fn massi_line(
+    highs: &[f64],
+    lows: &[f64],
+    period_ema: usize,
+    period_sum: usize,
+) -> Vec<Option<f64>> {
     let len = highs.len();
     let mut mass = vec![None; len];
-    let mut signal = vec![None; len];
 
-    if len < 2 * (period_ema - 1) + (period_sum - 1) + 1 {
-        return (mass, signal);
+    if len != lows.len() || len < 2 * (period_ema - 1) + (period_sum - 1) + 1 {
+        return mass;
     }
 
     let high_low_diffs: Vec<f64> = highs.iter().zip(lows.iter()).map(|(h, l)| h - l).collect();
@@ -36,9 +58,7 @@ pub fn massi(
         }
     }
 
-    signal = ema_aligned(&mass, period_signal);
-
-    (mass, signal)
+    mass
 }
 
 #[cfg(test)]
@@ -47,9 +67,13 @@ mod tests {
     use crate::testutils;
     use crate::utils::round_vec;
 
+    /// Verifies the standard MASSI outputs against fixture data.
     #[test]
     fn test_massi() {
+        // Given
         let test_cases = vec!["005930", "TSLA"];
+
+        // When
         for symbol in test_cases {
             let highs = testutils::load_data(&format!("../data/{}.json", symbol), "h");
             let lows = testutils::load_data(&format!("../data/{}.json", symbol), "l");
@@ -65,6 +89,7 @@ mod tests {
                 symbol
             ));
 
+            // Then
             assert_eq!(
                 round_vec(mass, 8),
                 round_vec(expected_mass, 8),

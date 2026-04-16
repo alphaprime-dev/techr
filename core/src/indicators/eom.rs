@@ -8,9 +8,34 @@ pub fn eom(
     signal_period: usize,
     scale: f64,
 ) -> (Vec<Option<f64>>, Vec<Option<f64>>) {
+    let eom_line = eom_line(highs, lows, volumes, period, scale);
+    let signal = sma_aligned(&eom_line, signal_period);
+
+    (eom_line, signal)
+}
+
+pub fn eom_signal(
+    highs: &[f64],
+    lows: &[f64],
+    volumes: &[f64],
+    period: usize,
+    signal_period: usize,
+    scale: f64,
+) -> Vec<Option<f64>> {
+    let eom_line = eom_line(highs, lows, volumes, period, scale);
+    sma_aligned(&eom_line, signal_period)
+}
+
+pub fn eom_line(
+    highs: &[f64],
+    lows: &[f64],
+    volumes: &[f64],
+    period: usize,
+    scale: f64,
+) -> Vec<Option<f64>> {
     let len = highs.len();
     if len < 2 || len != lows.len() || len != volumes.len() {
-        return (vec![None; len], vec![None; len]);
+        return vec![None; len];
     }
 
     let mut eom_values = Vec::with_capacity(len - 1);
@@ -35,9 +60,7 @@ pub fn eom(
         eom_line[i + 1] = value;
     }
 
-    let signal = sma_aligned(&eom_line, signal_period);
-
-    (eom_line, signal)
+    eom_line
 }
 
 #[cfg(test)]
@@ -46,9 +69,13 @@ mod tests {
     use crate::testutils;
     use crate::utils::round_vec;
 
+    /// Verifies the standard EOM outputs against fixture data.
     #[test]
     fn test_eom() {
+        // Given
         let test_cases = vec!["005930", "TSLA"];
+
+        // When
         for symbol in test_cases {
             let highs = testutils::load_data(&format!("../data/{}.json", symbol), "h");
             let lows = testutils::load_data(&format!("../data/{}.json", symbol), "l");
@@ -65,6 +92,7 @@ mod tests {
                 symbol
             ));
 
+            // Then
             assert_eq!(
                 round_vec(eom, 8),
                 round_vec(expected_eom, 8),

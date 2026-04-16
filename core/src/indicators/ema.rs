@@ -111,15 +111,7 @@ mod tests {
     #[test]
     fn test_ema_aligned_with_interior_gaps() {
         // Given
-        let aligned = vec![
-            None,
-            None,
-            Some(1.0),
-            Some(2.0),
-            None,
-            Some(3.0),
-            Some(4.0),
-        ];
+        let aligned = vec![None, None, Some(1.0), Some(2.0), None, Some(3.0), Some(4.0)];
         let expected = vec![None, None, None, Some(1.5), None, Some(2.5), Some(3.5)];
 
         // When

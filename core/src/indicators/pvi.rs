@@ -5,12 +5,23 @@ pub fn pvi(
     volumes: &[f64],
     signal_period: usize,
 ) -> (Vec<Option<f64>>, Vec<Option<f64>>) {
+    let pvi_line = pvi_line(closes, volumes);
+    let signal = ema_aligned(&pvi_line, signal_period);
+
+    (pvi_line, signal)
+}
+
+pub fn pvi_signal(closes: &[f64], volumes: &[f64], signal_period: usize) -> Vec<Option<f64>> {
+    let pvi_line = pvi_line(closes, volumes);
+    ema_aligned(&pvi_line, signal_period)
+}
+
+pub fn pvi_line(closes: &[f64], volumes: &[f64]) -> Vec<Option<f64>> {
     let len = closes.len();
     let mut pvi_line = vec![None; len];
-    let mut signal = vec![None; len];
 
-    if len < 2 {
-        return (pvi_line, signal);
+    if len < 2 || len != volumes.len() {
+        return pvi_line;
     }
 
     let mut pvi_point = 1000.0;
@@ -23,9 +34,7 @@ pub fn pvi(
         pvi_line[i] = Some(pvi_point);
     }
 
-    signal = ema_aligned(&pvi_line, signal_period);
-
-    (pvi_line, signal)
+    pvi_line
 }
 
 #[cfg(test)]
@@ -34,9 +43,13 @@ mod tests {
     use crate::testutils;
     use crate::utils::round_vec;
 
+    /// Verifies the standard PVI outputs against fixture data.
     #[test]
     fn test_pvi() {
+        // Given
         let test_cases = vec!["005930", "TSLA"];
+
+        // When
         for symbol in test_cases {
             let closes = testutils::load_data(&format!("../data/{}.json", symbol), "c");
             let volumes = testutils::load_data(&format!("../data/{}.json", symbol), "v");
@@ -52,6 +65,7 @@ mod tests {
                 symbol
             ));
 
+            // Then
             assert_eq!(
                 round_vec(pvi, 8),
                 round_vec(expected_pvi, 8),

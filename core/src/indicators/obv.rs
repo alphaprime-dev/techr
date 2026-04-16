@@ -5,13 +5,18 @@ pub fn obv(
     volumes: &[f64],
     signal_period: usize,
 ) -> (Vec<Option<f64>>, Vec<Option<f64>>) {
-    let obv_line = calc_obv_line(data, volumes);
-    let obv_signal = obv_signal_by_obvline(&obv_line, signal_period);
+    let obv_line = obv_line(data, volumes);
+    let obv_signal = ema_aligned(&obv_line, signal_period);
 
     (obv_line, obv_signal)
 }
 
-fn calc_obv_line(data: &[f64], volumes: &[f64]) -> Vec<Option<f64>> {
+pub fn obv_signal(data: &[f64], volumes: &[f64], signal_period: usize) -> Vec<Option<f64>> {
+    let obv_line = obv_line(data, volumes);
+    ema_aligned(&obv_line, signal_period)
+}
+
+pub fn obv_line(data: &[f64], volumes: &[f64]) -> Vec<Option<f64>> {
     let mut obv = vec![None; data.len()];
 
     let len = data.len();
@@ -43,19 +48,19 @@ fn calc_obv_line(data: &[f64], volumes: &[f64]) -> Vec<Option<f64>> {
     obv
 }
 
-fn obv_signal_by_obvline(obv_line: &[Option<f64>], signal_period: usize) -> Vec<Option<f64>> {
-    ema_aligned(obv_line, signal_period)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::testutils;
     use crate::utils::round_vec;
 
+    /// Verifies the standard OBV outputs against fixture data.
     #[test]
     fn test_obv() {
+        // Given
         let test_cases = vec!["005930", "TSLA"];
+
+        // When
         for symbol in test_cases {
             let close = testutils::load_data(&format!("../data/{}.json", symbol), "c");
             let volume = testutils::load_data(&format!("../data/{}.json", symbol), "v");
@@ -70,6 +75,7 @@ mod tests {
                 symbol
             ));
 
+            // Then
             assert_eq!(
                 round_vec(line, 4),
                 round_vec(expected_line, 4),

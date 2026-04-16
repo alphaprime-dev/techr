@@ -6,8 +6,8 @@ pub fn ppo(
     slow_period: usize,
     signal_period: usize,
 ) -> (Vec<Option<f64>>, Vec<Option<f64>>, Vec<Option<f64>>) {
-    let ppo_line = calc_ppo_line(data, fast_period, slow_period);
-    let signal_line = calc_ppo_signal(&ppo_line, signal_period);
+    let ppo_line = ppo_line(data, fast_period, slow_period);
+    let signal_line = ema_aligned(&ppo_line, signal_period);
     let histogram = ppo_line
         .iter()
         .zip(signal_line.iter())
@@ -20,7 +20,35 @@ pub fn ppo(
     (ppo_line, signal_line, histogram)
 }
 
-fn calc_ppo_line(data: &[f64], fast_period: usize, slow_period: usize) -> Vec<Option<f64>> {
+pub fn ppo_histogram(
+    data: &[f64],
+    fast_period: usize,
+    slow_period: usize,
+    signal_period: usize,
+) -> Vec<Option<f64>> {
+    let ppo_line = ppo_line(data, fast_period, slow_period);
+    let signal_line = ema_aligned(&ppo_line, signal_period);
+    ppo_line
+        .iter()
+        .zip(signal_line.iter())
+        .map(|(&ppo, &signal)| match (ppo, signal) {
+            (Some(p), Some(s)) => Some(p - s),
+            _ => None,
+        })
+        .collect()
+}
+
+pub fn ppo_signal(
+    data: &[f64],
+    fast_period: usize,
+    slow_period: usize,
+    signal_period: usize,
+) -> Vec<Option<f64>> {
+    let ppo_line = ppo_line(data, fast_period, slow_period);
+    ema_aligned(&ppo_line, signal_period)
+}
+
+pub fn ppo_line(data: &[f64], fast_period: usize, slow_period: usize) -> Vec<Option<f64>> {
     let mut ppo_line = vec![None; data.len()];
 
     if data.len() < slow_period || fast_period >= slow_period {
@@ -41,18 +69,14 @@ fn calc_ppo_line(data: &[f64], fast_period: usize, slow_period: usize) -> Vec<Op
     ppo_line
 }
 
-fn calc_ppo_signal(ppo_line: &[Option<f64>], signal_period: usize) -> Vec<Option<f64>> {
-    ema_aligned(ppo_line, signal_period)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::testutils;
     use crate::utils::round_vec;
 
-    #[test]
     /// Verifies the standard PPO output against fixture data.
+    #[test]
     fn test_ppo() {
         // Given
         let test_cases = vec!["005930", "TSLA"];

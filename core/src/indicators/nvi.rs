@@ -5,12 +5,23 @@ pub fn nvi(
     volumes: &[f64],
     signal_period: usize,
 ) -> (Vec<Option<f64>>, Vec<Option<f64>>) {
+    let nvi_line = nvi_line(closes, volumes);
+    let signal = ema_aligned(&nvi_line, signal_period);
+
+    (nvi_line, signal)
+}
+
+pub fn nvi_signal(closes: &[f64], volumes: &[f64], signal_period: usize) -> Vec<Option<f64>> {
+    let nvi_line = nvi_line(closes, volumes);
+    ema_aligned(&nvi_line, signal_period)
+}
+
+pub fn nvi_line(closes: &[f64], volumes: &[f64]) -> Vec<Option<f64>> {
     let len = closes.len();
     let mut nvi_line = vec![None; len];
-    let mut signal = vec![None; len];
 
-    if len < 2 {
-        return (nvi_line, signal);
+    if len < 2 || len != volumes.len() {
+        return nvi_line;
     }
 
     let mut nvi_point = 1000.0;
@@ -23,9 +34,7 @@ pub fn nvi(
         nvi_line[i] = Some(nvi_point);
     }
 
-    signal = ema_aligned(&nvi_line, signal_period);
-
-    (nvi_line, signal)
+    nvi_line
 }
 
 #[cfg(test)]
@@ -34,9 +43,13 @@ mod tests {
     use crate::testutils;
     use crate::utils::round_vec;
 
+    /// Verifies the standard NVI outputs against fixture data.
     #[test]
     fn test_nvi() {
+        // Given
         let test_cases = vec!["005930", "TSLA"];
+
+        // When
         for symbol in test_cases {
             let closes = testutils::load_data(&format!("../data/{}.json", symbol), "c");
             let volumes = testutils::load_data(&format!("../data/{}.json", symbol), "v");
@@ -52,6 +65,7 @@ mod tests {
                 symbol
             ));
 
+            // Then
             assert_eq!(
                 round_vec(nvi, 8),
                 round_vec(expected_nvi, 8),
