@@ -1,5 +1,5 @@
 [project]
-name = "polars-techr"
+name = "techr"
 dynamic = ["version"]
 description = "Polars expression plugins for techr indicators"
 authors = [{ name = "alphaprime-dev" }]
@@ -36,14 +36,14 @@ dev = [
 default-groups = "all"
 
 [tool.maturin]
-module-name = "polars_techr._polars_techr"
-python-packages = ["polars_techr"]
+module-name = "techr._techr"
+python-packages = ["techr"]
 strip = true
 exclude = [
     ".pytest_cache/**",
     ".ruff_cache/**",
     ".venv/**",
-    "polars_techr/__pycache__/**",
+    "techr/__pycache__/**",
     "tests/__pycache__/**",
 ]
 

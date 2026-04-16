@@ -14,14 +14,14 @@ BANNED_PARTS = {
 }
 BANNED_SUFFIXES = {".pyc", ".pyo"}
 REQUIRED_WHEEL_FILES = {
-    PurePosixPath("polars_techr/__init__.py"),
-    PurePosixPath("polars_techr/types.py"),
+    PurePosixPath("techr/__init__.py"),
+    PurePosixPath("techr/types.py"),
 }
 REQUIRED_SDIST_FILES = {
     PurePosixPath("pyproject.toml"),
     PurePosixPath("Cargo.toml"),
     PurePosixPath("README.md"),
-    PurePosixPath("polars_techr/__init__.py"),
+    PurePosixPath("techr/__init__.py"),
 }
 
 
@@ -66,8 +66,8 @@ def validate_wheel(path: Path, members: list[PurePosixPath]) -> None:
     native_extensions = [
         member
         for member in members
-        if member.parent == PurePosixPath("polars_techr")
-        and member.name.startswith("_polars_techr.")
+        if member.parent == PurePosixPath("techr")
+        and member.name.startswith("_techr.")
         and member.suffix in {".so", ".pyd"}
     ]
     if len(native_extensions) != 1:
@@ -86,10 +86,10 @@ def validate_sdist(path: Path, members: list[PurePosixPath]) -> None:
         raise ValueError(f"{path.name} is missing files: {', '.join(missing_files)}")
 
     required_patterns = {
-        "polars_techr/*.py": any(
+        "techr/*.py": any(
             member.suffix == ".py"
             and len(member.parts) >= 2
-            and member.parts[-2] == "polars_techr"
+            and member.parts[-2] == "techr"
             for member in normalized
         ),
         "src/*.rs": any(

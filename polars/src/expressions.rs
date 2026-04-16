@@ -1,7 +1,7 @@
 use polars::prelude::*;
 use pyo3_polars::derive::polars_expr;
 use serde::Deserialize;
-use techr::{
+use techr_core::{
     bband_lower as techr_bband_lower, bband_middle as techr_bband_middle,
     bband_upper as techr_bband_upper, disparity as techr_disparity, ema as techr_ema,
     ichimoku_base_line as techr_ichimoku_base_line,

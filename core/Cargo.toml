@@ -9,7 +9,7 @@ homepage = "https://github.com/alphaprime-dev/techr"
 repository = "https://github.com/alphaprime-dev/techr"
 
 [lib]
-name = "techr"
+name = "techr_core"
 crate-type = ["cdylib", "rlib"]
 
 [dev-dependencies]

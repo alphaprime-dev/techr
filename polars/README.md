@@ -1,11 +1,11 @@
-# polars-techr
+# techr
 
-`polars-techr` exposes `techr` indicators as Polars expression plugins.
+`techr` exposes technical indicators as Polars expression plugins.
 
 ## Installation
 
 ```bash
-uv add polars-techr
+uv add techr
 ```
 
 ## Supported indicators
@@ -22,7 +22,7 @@ uv add polars-techr
 
 ```python
 import polars as pl
-import polars_techr as ta
+import techr as ta
 
 df = pl.DataFrame(
     {
