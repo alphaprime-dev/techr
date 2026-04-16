@@ -1,0 +1,72 @@
+name: Polars Auto Release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "polars/Cargo.toml"
+  workflow_dispatch:
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      release_created: ${{ steps.version.outputs.release_created }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Determine release version
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          release_tag="$(python - <<'PY'
+          import tomllib
+          from pathlib import Path
+
+          cargo = tomllib.loads(Path("polars/Cargo.toml").read_text())
+          print(f"polars-v{cargo['package']['version']}")
+          PY
+          )"
+
+          latest_tag="$(gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" --jq '
+            map(select(.draft == false and .prerelease == false and (.tag_name | startswith("polars-v"))))
+            | .[0].tag_name // ""
+          ')"
+
+          echo "release_tag=$release_tag" >> "$GITHUB_OUTPUT"
+
+          if [ "$release_tag" = "$latest_tag" ]; then
+            echo "release_created=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "release_created=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create published GitHub release
+        if: steps.version.outputs.release_created == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.release_tag }}
+          name: ${{ steps.version.outputs.release_tag }}
+          target_commitish: ${{ github.sha }}
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+
+  publish-pypi:
+    if: needs.create-release.outputs.release_created == 'true'
+    needs: create-release
+    permissions:
+      contents: read
+      id-token: write
+    # Releases created with the default GitHub token do not fan out into new
+    # workflow runs, so reuse the publish workflow directly here.
+    uses: ./.github/workflows/polars-release.yml
+    secrets: inherit
