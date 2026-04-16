@@ -3,8 +3,8 @@ from pathlib import Path
 from typing import Callable
 
 import polars as pl
-import polars_techr as ta
 import pytest
+import techr as ta
 
 ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = ROOT / "data"
