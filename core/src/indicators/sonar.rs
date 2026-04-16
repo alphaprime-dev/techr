@@ -1,4 +1,4 @@
-use crate::indicators::ema::ema;
+use crate::indicators::ema::{ema, ema_aligned};
 
 pub fn sonar(
     data: &[f64],
@@ -21,13 +21,7 @@ pub fn sonar(
         }
     }
 
-    let sonar_values: Vec<f64> = sonar_line.iter().filter_map(|&x| x).collect();
-    let signal_ema = ema(&sonar_values, signal_period);
-    let offset = data.len() - sonar_values.len();
-
-    for (i, &value) in signal_ema.iter().enumerate() {
-        signal_line[i + offset] = value;
-    }
+    signal_line = ema_aligned(&sonar_line, signal_period);
 
     (sonar_line, signal_line)
 }

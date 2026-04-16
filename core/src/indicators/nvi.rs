@@ -1,4 +1,4 @@
-use crate::indicators::ema::ema;
+use crate::indicators::ema::ema_aligned;
 
 pub fn nvi(
     closes: &[f64],
@@ -23,12 +23,7 @@ pub fn nvi(
         nvi_line[i] = Some(nvi_point);
     }
 
-    let nvi_values: Vec<f64> = nvi_line.iter().filter_map(|&x| x).collect();
-    let signal_ema = ema(&nvi_values, signal_period);
-    let signal_offset = len - signal_ema.len();
-    for (i, &s) in signal_ema.iter().enumerate() {
-        signal[i + signal_offset] = s;
-    }
+    signal = ema_aligned(&nvi_line, signal_period);
 
     (nvi_line, signal)
 }

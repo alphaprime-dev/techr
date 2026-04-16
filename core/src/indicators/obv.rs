@@ -1,4 +1,4 @@
-use crate::indicators::ema::ema;
+use crate::indicators::ema::ema_aligned;
 
 pub fn obv(
     data: &[f64],
@@ -44,23 +44,7 @@ fn calc_obv_line(data: &[f64], volumes: &[f64]) -> Vec<Option<f64>> {
 }
 
 fn obv_signal_by_obvline(obv_line: &[Option<f64>], signal_period: usize) -> Vec<Option<f64>> {
-    let mut obv_signal = vec![None; obv_line.len()];
-
-    let null_count = obv_line.iter().take_while(|&&x| x.is_none()).count();
-    let obv_values = obv_line
-        .iter()
-        .skip(null_count)
-        .filter_map(|&v| v)
-        .collect::<Vec<f64>>();
-    let ema_obv = ema(&obv_values, signal_period);
-
-    for i in 0..ema_obv.len() {
-        if let Some(ema_value) = ema_obv[i] {
-            obv_signal[i + null_count] = Some(ema_value);
-        }
-    }
-
-    obv_signal
+    ema_aligned(obv_line, signal_period)
 }
 
 #[cfg(test)]

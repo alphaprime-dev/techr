@@ -1,4 +1,4 @@
-use crate::indicators::ema::ema;
+use crate::indicators::ema::{ema, ema_aligned};
 
 pub fn pvo(
     data: &[f64],
@@ -44,19 +44,7 @@ fn calc_pvo_line(data: &[f64], fast_period: usize, slow_period: usize) -> Vec<Op
 }
 
 fn calc_pvo_signal(pvo_line: &[Option<f64>], signal_period: usize) -> Vec<Option<f64>> {
-    let mut signal_line: Vec<Option<f64>> = vec![None; pvo_line.len()];
-    let pvo_values: Vec<f64> = pvo_line.iter().filter_map(|&x| x).collect();
-    let offset = pvo_line.len() - pvo_values.len();
-
-    let ema_values = ema(&pvo_values, signal_period);
-
-    for i in 0..ema_values.len() {
-        if let Some(ema_value) = ema_values[i] {
-            signal_line[i + offset] = Some(ema_value);
-        }
-    }
-
-    signal_line
+    ema_aligned(pvo_line, signal_period)
 }
 #[cfg(test)]
 mod tests {

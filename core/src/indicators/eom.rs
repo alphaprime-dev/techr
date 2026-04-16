@@ -1,4 +1,4 @@
-use crate::indicators::sma::sma;
+use crate::indicators::sma::{sma, sma_aligned};
 
 pub fn eom(
     highs: &[f64],
@@ -35,13 +35,7 @@ pub fn eom(
         eom_line[i + 1] = value;
     }
 
-    let eom_values: Vec<f64> = eom_line.iter().filter_map(|&x| x).collect();
-    let signal_sma = sma(&eom_values, signal_period);
-    let mut signal = vec![None; eom_line.len()];
-    let signal_offset = eom_line.len() - signal_sma.len();
-    for (i, &s) in signal_sma.iter().enumerate() {
-        signal[i + signal_offset] = s;
-    }
+    let signal = sma_aligned(&eom_line, signal_period);
 
     (eom_line, signal)
 }

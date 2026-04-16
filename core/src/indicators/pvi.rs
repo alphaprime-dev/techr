@@ -1,4 +1,4 @@
-use crate::indicators::ema::ema;
+use crate::indicators::ema::ema_aligned;
 
 pub fn pvi(
     closes: &[f64],
@@ -23,12 +23,7 @@ pub fn pvi(
         pvi_line[i] = Some(pvi_point);
     }
 
-    let pvi_values: Vec<f64> = pvi_line.iter().filter_map(|&x| x).collect();
-    let signal_ema = ema(&pvi_values, signal_period);
-    let signal_offset = len - signal_ema.len();
-    for (i, &s) in signal_ema.iter().enumerate() {
-        signal[i + signal_offset] = s;
-    }
+    signal = ema_aligned(&pvi_line, signal_period);
 
     (pvi_line, signal)
 }

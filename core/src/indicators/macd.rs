@@ -1,4 +1,4 @@
-use crate::indicators::ema::ema;
+use crate::indicators::ema::{ema, ema_aligned};
 
 pub fn macd(
     data: &[f64],
@@ -75,37 +75,7 @@ fn calc_macd_line(data: &[f64], fast_period: usize, slow_period: usize) -> Vec<O
 }
 
 fn calc_macd_signal(macd_line: &[Option<f64>], signal_period: usize) -> Vec<Option<f64>> {
-    let mut signal_line = vec![None; macd_line.len()];
-    let Some(first_valid_idx) = macd_line.iter().position(|value| value.is_some()) else {
-        return signal_line;
-    };
-
-    let valid_len = macd_line.len() - first_valid_idx;
-    if signal_period == 0 || valid_len < signal_period {
-        return signal_line;
-    }
-
-    let first_signal_idx = first_valid_idx + signal_period - 1;
-    let mut signal = mean_macd_window(macd_line, first_valid_idx, signal_period);
-    let alpha = 2.0 / (signal_period as f64 + 1.0);
-
-    signal_line[first_signal_idx] = Some(signal);
-
-    for (idx, value) in macd_line.iter().enumerate().skip(first_signal_idx + 1) {
-        let macd = value.expect("macd_line becomes contiguous after the first valid value");
-        signal = alpha * macd + (1.0 - alpha) * signal;
-        signal_line[idx] = Some(signal);
-    }
-
-    signal_line
-}
-
-fn mean_macd_window(macd_line: &[Option<f64>], start_idx: usize, period: usize) -> f64 {
-    macd_line[start_idx..start_idx + period]
-        .iter()
-        .map(|value| value.expect("initial signal window must be fully populated"))
-        .sum::<f64>()
-        / period as f64
+    ema_aligned(macd_line, signal_period)
 }
 
 #[cfg(test)]

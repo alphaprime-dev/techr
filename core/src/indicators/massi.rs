@@ -1,4 +1,4 @@
-use crate::indicators::ema::ema;
+use crate::indicators::ema::{ema, ema_aligned};
 
 pub fn massi(
     highs: &[f64],
@@ -17,13 +17,12 @@ pub fn massi(
 
     let high_low_diffs: Vec<f64> = highs.iter().zip(lows.iter()).map(|(h, l)| h - l).collect();
     let s_ema = ema(&high_low_diffs, period_ema);
-    let s_ema_filtered: Vec<f64> = s_ema.iter().filter_map(|&x| x).collect();
     let offset: usize = period_ema - 1;
-    let d_ema = ema(&s_ema_filtered, period_ema);
+    let d_ema = ema_aligned(&s_ema, period_ema);
 
-    let mut ema_ratio = Vec::with_capacity(d_ema.len());
-    for i in offset..d_ema.len() + offset {
-        if let (Some(s), Some(d)) = (s_ema[i], d_ema[i - offset]) {
+    let mut ema_ratio = Vec::with_capacity(len.saturating_sub(2 * offset));
+    for i in 0..len {
+        if let (Some(s), Some(d)) = (s_ema[i], d_ema[i]) {
             ema_ratio.push(s / d);
         }
     }
@@ -37,12 +36,7 @@ pub fn massi(
         }
     }
 
-    let mass_values: Vec<f64> = mass.iter().filter_map(|&x| x).collect();
-    let signal_ema = ema(&mass_values, period_signal);
-    let signal_offset = len - signal_ema.len();
-    for (i, &s) in signal_ema.iter().enumerate() {
-        signal[i + signal_offset] = s;
-    }
+    signal = ema_aligned(&mass, period_signal);
 
     (mass, signal)
 }

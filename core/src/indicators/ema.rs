@@ -18,6 +18,40 @@ pub fn ema(data: &[f64], period: usize) -> Vec<Option<f64>> {
     result
 }
 
+pub(crate) fn ema_aligned(data: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
+    let mut result = vec![None; data.len()];
+    let Some(first_valid_idx) = data.iter().position(|value| value.is_some()) else {
+        return result;
+    };
+
+    let valid_len = data.len() - first_valid_idx;
+    if period == 0 || valid_len < period {
+        return result;
+    }
+
+    let first_signal_idx = first_valid_idx + period - 1;
+    let alpha = 2.0 / (period as f64 + 1.0);
+    let mut ema = mean_window(data, first_valid_idx, period);
+
+    result[first_signal_idx] = Some(ema);
+
+    for (idx, value) in data.iter().enumerate().skip(first_signal_idx + 1) {
+        let value = value.expect("aligned EMA input must be contiguous after the first value");
+        ema = alpha * value + (1.0 - alpha) * ema;
+        result[idx] = Some(ema);
+    }
+
+    result
+}
+
+fn mean_window(data: &[Option<f64>], start_idx: usize, period: usize) -> f64 {
+    data[start_idx..start_idx + period]
+        .iter()
+        .map(|value| value.expect("initial EMA window must be fully populated"))
+        .sum::<f64>()
+        / period as f64
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
