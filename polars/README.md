@@ -74,9 +74,9 @@ uv run python scripts/check_artifacts.py dist
 
 1. Update the version in `Cargo.toml`.
 2. Merge the version bump to `main`.
-3. `Polars Auto Release` creates and publishes the matching `polars-vX.Y.Z` GitHub Release.
-4. That release publishes the built artifacts to PyPI automatically.
+3. `Polars Release` builds the artifacts and publishes them to PyPI.
+4. After the PyPI publish succeeds, the workflow creates the matching `polars-vX.Y.Z` GitHub Release.
 
-Any production GitHub Release tag must match the version in `Cargo.toml`.
+If the matching GitHub Release already exists, the workflow exits without publishing a duplicate release.
 
 Before the first release, configure a Trusted Publisher for PyPI on `alphaprime-dev/techr`.

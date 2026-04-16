@@ -1,13 +1,54 @@
 name: Polars Release
 
 on:
-  workflow_call:
+  push:
+    branches:
+      - main
+    paths:
+      - "polars/Cargo.toml"
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      release_needed: ${{ steps.version.outputs.release_needed }}
+      release_tag: ${{ steps.version.outputs.release_tag }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Determine release version
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          release_tag="$(python - <<'PY'
+          import tomllib
+          from pathlib import Path
+
+          cargo = tomllib.loads(Path("polars/Cargo.toml").read_text())
+          print(f"polars-v{cargo['package']['version']}")
+          PY
+          )"
+
+          echo "release_tag=$release_tag" >> "$GITHUB_OUTPUT"
+
+          if gh release view "$release_tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "release_needed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "release_needed=true" >> "$GITHUB_OUTPUT"
+          fi
+
   build-linux:
+    if: needs.prepare.outputs.release_needed == 'true'
+    needs: prepare
     strategy:
       fail-fast: false
       matrix:
@@ -75,6 +116,8 @@ jobs:
           path: polars/dist/*
 
   build-macos:
+    if: needs.prepare.outputs.release_needed == 'true'
+    needs: prepare
     runs-on: macos-14
     defaults:
       run:
@@ -120,6 +163,8 @@ jobs:
           path: polars/dist/*
 
   build-windows:
+    if: needs.prepare.outputs.release_needed == 'true'
+    needs: prepare
     runs-on: windows-latest
     defaults:
       run:
@@ -162,6 +207,8 @@ jobs:
           path: polars/dist/*
 
   build-sdist:
+    if: needs.prepare.outputs.release_needed == 'true'
+    needs: prepare
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -188,7 +235,8 @@ jobs:
           path: polars/dist/*
 
   publish-pypi:
-    needs: [build-linux, build-macos, build-windows, build-sdist]
+    if: needs.prepare.outputs.release_needed == 'true'
+    needs: [prepare, build-linux, build-macos, build-windows, build-sdist]
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
@@ -202,3 +250,20 @@ jobs:
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dist
+          skip-existing: true
+
+  create-release:
+    if: needs.prepare.outputs.release_needed == 'true'
+    needs: [prepare, publish-pypi]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.prepare.outputs.release_tag }}
+          name: ${{ needs.prepare.outputs.release_tag }}
+          target_commitish: ${{ github.sha }}
+          generate_release_notes: true
+          draft: false
+          prerelease: false
