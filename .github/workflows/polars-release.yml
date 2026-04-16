@@ -1,10 +1,7 @@
 name: Polars Release
 
 on:
-  push:
-    tags:
-      - "polars-v*"
-  workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
@@ -190,28 +187,10 @@ jobs:
           name: wheels-sdist
           path: polars/dist/*
 
-  publish-testpypi:
-    if: github.event_name == 'workflow_dispatch'
-    needs: [build-linux, build-macos, build-windows, build-sdist]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
-    steps:
-      - uses: actions/download-artifact@v8
-        with:
-          path: dist
-          merge-multiple: true
-      - uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          repository-url: https://test.pypi.org/legacy/
-          packages-dir: dist
-          skip-existing: true
-
   publish-pypi:
-    if: github.event_name == 'push'
     needs: [build-linux, build-macos, build-windows, build-sdist]
     runs-on: ubuntu-latest
+    environment: pypi
     permissions:
       contents: read
       id-token: write

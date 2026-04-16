@@ -73,8 +73,10 @@ uv run python scripts/check_artifacts.py dist
 ## Release
 
 1. Update the version in `Cargo.toml`.
-2. Optionally build release artifacts locally for a final preflight check.
-3. Optionally run the `Polars Release` workflow manually to publish the current ref to TestPyPI.
-4. Create and push a `polars-vX.Y.Z` tag to publish to PyPI.
+2. Merge the version bump to `main`.
+3. `Polars Auto Release` creates and publishes the matching `polars-vX.Y.Z` GitHub Release.
+4. That release publishes the built artifacts to PyPI automatically.
 
-Before the first release, configure Trusted Publishers for both PyPI and TestPyPI on `alphaprime-dev/techr`.
+Any production GitHub Release tag must match the version in `Cargo.toml`.
+
+Before the first release, configure a Trusted Publisher for PyPI on `alphaprime-dev/techr`.
