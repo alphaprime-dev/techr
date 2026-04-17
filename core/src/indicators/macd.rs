@@ -1,4 +1,4 @@
-use crate::indicators::ema::ema;
+use crate::indicators::ema::{ema, ema_aligned};
 
 pub fn macd(
     data: &[f64],
@@ -6,10 +6,8 @@ pub fn macd(
     slow_period: usize,
     signal_period: usize,
 ) -> (Vec<Option<f64>>, Vec<Option<f64>>, Vec<Option<f64>>) {
-    let macd_line = calc_macd_line(data, fast_period, slow_period);
-    let signal_line = calc_macd_signal(&macd_line, signal_period);
-
-    // Calculate the histogram
+    let macd_line = macd_line(data, fast_period, slow_period);
+    let signal_line = ema_aligned(&macd_line, signal_period);
     let histogram = macd_line
         .iter()
         .zip(signal_line.iter())
@@ -22,28 +20,14 @@ pub fn macd(
     (macd_line, signal_line, histogram)
 }
 
-pub fn macd_line(data: &[f64], fast_period: usize, slow_period: usize) -> Vec<Option<f64>> {
-    calc_macd_line(data, fast_period, slow_period)
-}
-
-pub fn macd_signal(
-    data: &[f64],
-    fast_period: usize,
-    slow_period: usize,
-    signal_period: usize,
-) -> Vec<Option<f64>> {
-    let macd_line = calc_macd_line(data, fast_period, slow_period);
-    calc_macd_signal(&macd_line, signal_period)
-}
-
 pub fn macd_histogram(
     data: &[f64],
     fast_period: usize,
     slow_period: usize,
     signal_period: usize,
 ) -> Vec<Option<f64>> {
-    let macd_line = calc_macd_line(data, fast_period, slow_period);
-    let signal_line = calc_macd_signal(&macd_line, signal_period);
+    let macd_line = macd_line(data, fast_period, slow_period);
+    let signal_line = ema_aligned(&macd_line, signal_period);
 
     macd_line
         .iter()
@@ -55,7 +39,17 @@ pub fn macd_histogram(
         .collect()
 }
 
-fn calc_macd_line(data: &[f64], fast_period: usize, slow_period: usize) -> Vec<Option<f64>> {
+pub fn macd_signal(
+    data: &[f64],
+    fast_period: usize,
+    slow_period: usize,
+    signal_period: usize,
+) -> Vec<Option<f64>> {
+    let macd_line = macd_line(data, fast_period, slow_period);
+    ema_aligned(&macd_line, signal_period)
+}
+
+pub fn macd_line(data: &[f64], fast_period: usize, slow_period: usize) -> Vec<Option<f64>> {
     let mut macd_line = vec![None; data.len()];
 
     if data.len() < slow_period || fast_period >= slow_period {
@@ -74,34 +68,19 @@ fn calc_macd_line(data: &[f64], fast_period: usize, slow_period: usize) -> Vec<O
     macd_line
 }
 
-fn calc_macd_signal(macd_line: &[Option<f64>], signal_period: usize) -> Vec<Option<f64>> {
-    let mut signal_line: Vec<Option<f64>> = vec![None; macd_line.len()];
-    let null_count = macd_line.iter().take_while(|&&x| x.is_none()).count();
-    let macd_values: Vec<f64> = macd_line
-        .iter()
-        .skip(null_count)
-        .filter_map(|&x| x)
-        .collect();
-    let ema_values = ema(&macd_values, signal_period);
-
-    for i in 0..ema_values.len() {
-        if let Some(ema_value) = ema_values[i] {
-            signal_line[i + null_count] = Some(ema_value);
-        }
-    }
-
-    signal_line
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::testutils;
     use crate::utils::round_vec;
 
+    /// Verifies the standard MACD outputs against fixture data.
     #[test]
     fn test_macd() {
+        // Given
         let test_cases = vec!["005930", "TSLA"];
+
+        // When
         for symbol in test_cases {
             let input = testutils::load_data(&format!("../data/{}.json", symbol), "c");
             let (macd_line, signal_line, histogram) = macd(&input, 12, 26, 9);
@@ -119,6 +98,7 @@ mod tests {
                 symbol
             ));
 
+            // Then
             assert_eq!(
                 round_vec(macd_line, 8),
                 round_vec(expected_macd, 8),

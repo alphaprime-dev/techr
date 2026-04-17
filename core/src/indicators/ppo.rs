@@ -1,4 +1,4 @@
-use crate::indicators::ema::ema;
+use crate::indicators::ema::{ema, ema_aligned};
 
 pub fn ppo(
     data: &[f64],
@@ -6,8 +6,8 @@ pub fn ppo(
     slow_period: usize,
     signal_period: usize,
 ) -> (Vec<Option<f64>>, Vec<Option<f64>>, Vec<Option<f64>>) {
-    let ppo_line = calc_ppo_line(data, fast_period, slow_period);
-    let signal_line = calc_ppo_signal(&ppo_line, signal_period);
+    let ppo_line = ppo_line(data, fast_period, slow_period);
+    let signal_line = ema_aligned(&ppo_line, signal_period);
     let histogram = ppo_line
         .iter()
         .zip(signal_line.iter())
@@ -20,7 +20,35 @@ pub fn ppo(
     (ppo_line, signal_line, histogram)
 }
 
-fn calc_ppo_line(data: &[f64], fast_period: usize, slow_period: usize) -> Vec<Option<f64>> {
+pub fn ppo_histogram(
+    data: &[f64],
+    fast_period: usize,
+    slow_period: usize,
+    signal_period: usize,
+) -> Vec<Option<f64>> {
+    let ppo_line = ppo_line(data, fast_period, slow_period);
+    let signal_line = ema_aligned(&ppo_line, signal_period);
+    ppo_line
+        .iter()
+        .zip(signal_line.iter())
+        .map(|(&ppo, &signal)| match (ppo, signal) {
+            (Some(p), Some(s)) => Some(p - s),
+            _ => None,
+        })
+        .collect()
+}
+
+pub fn ppo_signal(
+    data: &[f64],
+    fast_period: usize,
+    slow_period: usize,
+    signal_period: usize,
+) -> Vec<Option<f64>> {
+    let ppo_line = ppo_line(data, fast_period, slow_period);
+    ema_aligned(&ppo_line, signal_period)
+}
+
+pub fn ppo_line(data: &[f64], fast_period: usize, slow_period: usize) -> Vec<Option<f64>> {
     let mut ppo_line = vec![None; data.len()];
 
     if data.len() < slow_period || fast_period >= slow_period {
@@ -41,31 +69,19 @@ fn calc_ppo_line(data: &[f64], fast_period: usize, slow_period: usize) -> Vec<Op
     ppo_line
 }
 
-fn calc_ppo_signal(ppo_line: &[Option<f64>], signal_period: usize) -> Vec<Option<f64>> {
-    let mut signal_line: Vec<Option<f64>> = vec![None; ppo_line.len()];
-    let ppo_values: Vec<f64> = ppo_line.iter().filter_map(|&x| x).collect();
-    let offset = ppo_line.len() - ppo_values.len();
-
-    let ema_values = ema(&ppo_values, signal_period);
-
-    for i in 0..ema_values.len() {
-        if let Some(ema_value) = ema_values[i] {
-            signal_line[i + offset] = Some(ema_value);
-        }
-    }
-
-    signal_line
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::testutils;
     use crate::utils::round_vec;
 
+    /// Verifies the standard PPO output against fixture data.
     #[test]
     fn test_ppo() {
+        // Given
         let test_cases = vec!["005930", "TSLA"];
+
+        // When
         for symbol in test_cases {
             let input = testutils::load_data(&format!("../data/{}.json", symbol), "c");
             let (ppo_line, signal_line, histogram) = ppo(&input, 12, 26, 9);
@@ -83,6 +99,7 @@ mod tests {
                 symbol
             ));
 
+            // Then
             assert_eq!(
                 round_vec(ppo_line, 8),
                 round_vec(expected_ppo, 8),
