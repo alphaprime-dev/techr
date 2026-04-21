@@ -1,4 +1,4 @@
-use crate::indicators::ema::{ema, ema_aligned};
+use crate::indicators::ema::{ema_aligned, ema_dense};
 
 pub fn pvo(
     data: &[f64],
@@ -55,8 +55,8 @@ pub fn pvo_line(data: &[f64], fast_period: usize, slow_period: usize) -> Vec<Opt
         return pvo_line;
     }
 
-    let fast_ema = ema(data, fast_period);
-    let slow_ema = ema(data, slow_period);
+    let fast_ema = ema_dense(data, fast_period);
+    let slow_ema = ema_dense(data, slow_period);
 
     for i in (slow_period - 1)..data.len() {
         if let (Some(fast), Some(slow)) = (fast_ema[i], slow_ema[i]) {

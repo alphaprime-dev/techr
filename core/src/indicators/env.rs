@@ -1,7 +1,7 @@
 use crate::indicators::sma::sma;
 
 pub fn env(
-    data: &[f64],
+    data: &[Option<f64>],
     period: usize,
     shift_percentage: f64,
 ) -> (Vec<Option<f64>>, Vec<Option<f64>>, Vec<Option<f64>>) {
@@ -33,7 +33,10 @@ mod tests {
     fn test_env() {
         let test_cases = vec!["005930", "TSLA"];
         for symbol in test_cases {
-            let input = testutils::load_data(&format!("../data/{}.json", symbol), "c");
+            let input = testutils::load_data(&format!("../data/{}.json", symbol), "c")
+                .into_iter()
+                .map(Some)
+                .collect::<Vec<_>>();
             let result = env(&input, 20, 10.0);
 
             let (env_upper, sma_values, env_lower) = result;
@@ -66,5 +69,33 @@ mod tests {
                 symbol
             );
         }
+    }
+
+    #[test]
+    fn test_env_with_interior_gap_invalidates_window() {
+        let input = vec![Some(1.0), Some(2.0), None, Some(4.0), Some(5.0)];
+
+        let (upper, middle, lower) = env(&input, 2, 10.0);
+
+        assert_eq!(middle, vec![None, Some(1.5), None, None, Some(4.5)]);
+        assert_eq!(
+            round_vec(upper, 8),
+            vec![None, Some(1.65), None, None, Some(4.95)]
+        );
+        assert_eq!(
+            round_vec(lower, 8),
+            vec![None, Some(1.35), None, None, Some(4.05)]
+        );
+    }
+
+    #[test]
+    fn test_env_full_window_invalidation() {
+        let input = vec![None, Some(2.0), None, Some(4.0)];
+
+        let (upper, middle, lower) = env(&input, 2, 10.0);
+
+        assert_eq!(upper, vec![None, None, None, None]);
+        assert_eq!(middle, vec![None, None, None, None]);
+        assert_eq!(lower, vec![None, None, None, None]);
     }
 }

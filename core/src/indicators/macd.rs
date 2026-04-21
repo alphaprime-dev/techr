@@ -1,4 +1,4 @@
-use crate::indicators::ema::{ema, ema_aligned};
+use crate::indicators::ema::{ema_aligned, ema_dense};
 
 pub fn macd(
     data: &[f64],
@@ -56,8 +56,8 @@ pub fn macd_line(data: &[f64], fast_period: usize, slow_period: usize) -> Vec<Op
         return macd_line;
     }
 
-    let fast_ema = ema(data, fast_period);
-    let slow_ema = ema(data, slow_period);
+    let fast_ema = ema_dense(data, fast_period);
+    let slow_ema = ema_dense(data, slow_period);
 
     for i in (slow_period - 1)..data.len() {
         if let (Some(fast), Some(slow)) = (fast_ema[i], slow_ema[i]) {

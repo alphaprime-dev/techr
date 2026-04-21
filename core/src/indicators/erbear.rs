@@ -1,4 +1,4 @@
-use crate::indicators::ema::ema;
+use crate::indicators::ema::ema_dense;
 
 pub fn erbear(lows: &[f64], closes: &[f64], period: usize) -> Vec<Option<f64>> {
     let mut erbear = vec![None; lows.len()];
@@ -7,7 +7,7 @@ pub fn erbear(lows: &[f64], closes: &[f64], period: usize) -> Vec<Option<f64>> {
         return erbear;
     }
 
-    let ema_values = ema(closes, period);
+    let ema_values = ema_dense(closes, period);
 
     for i in (period - 1)..lows.len() {
         if let Some(ema_value) = ema_values[i] {

@@ -1,4 +1,4 @@
-use crate::indicators::ema::{ema, ema_aligned};
+use crate::indicators::ema::{ema_aligned, ema_dense};
 
 pub fn massi(
     highs: &[f64],
@@ -38,7 +38,7 @@ pub fn massi_line(
     }
 
     let high_low_diffs: Vec<f64> = highs.iter().zip(lows.iter()).map(|(h, l)| h - l).collect();
-    let s_ema = ema(&high_low_diffs, period_ema);
+    let s_ema = ema_dense(&high_low_diffs, period_ema);
     let offset: usize = period_ema - 1;
     let d_ema = ema_aligned(&s_ema, period_ema);
 

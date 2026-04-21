@@ -1,9 +1,8 @@
 use crate::indicators::sma::sma;
-
-use crate::utils::round_scalar;
+use crate::utils::{rolling_mean_stddev_strict, round_scalar};
 
 pub fn bband(
-    data: &[f64],
+    data: &[Option<f64>],
     period: usize,
     sigma: Option<f64>,
 ) -> (Vec<Option<f64>>, Vec<Option<f64>>, Vec<Option<f64>>) {
@@ -12,55 +11,42 @@ pub fn bband(
     (upper_band, center, lower_band)
 }
 
-pub fn bband_middle(data: &[f64], period: usize) -> Vec<Option<f64>> {
+pub fn bband_middle(data: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
     sma(data, period)
 }
 
-pub fn bband_upper(data: &[f64], period: usize, sigma: Option<f64>) -> Vec<Option<f64>> {
+pub fn bband_upper(data: &[Option<f64>], period: usize, sigma: Option<f64>) -> Vec<Option<f64>> {
     let (upper_band, _) = bband_bands(data, period, sigma);
     upper_band
 }
 
-pub fn bband_lower(data: &[f64], period: usize, sigma: Option<f64>) -> Vec<Option<f64>> {
+pub fn bband_lower(data: &[Option<f64>], period: usize, sigma: Option<f64>) -> Vec<Option<f64>> {
     let (_, lower_band) = bband_bands(data, period, sigma);
     lower_band
 }
 
 fn bband_bands(
-    data: &[f64],
+    data: &[Option<f64>],
     period: usize,
     sigma: Option<f64>,
 ) -> (Vec<Option<f64>>, Vec<Option<f64>>) {
-    let mut upper_band = vec![None; data.len()];
-    let mut lower_band = vec![None; data.len()];
-    let mut sum = 0.0;
-    let mut sum_sq = 0.0;
     let sigma = sigma.unwrap_or(2.0);
+    let (means, stddevs) = rolling_mean_stddev_strict(data, period);
 
-    if data.len() < period {
-        return (upper_band, lower_band);
-    }
-
-    for i in 0..data.len() {
-        sum += data[i];
-        sum_sq += data[i] * data[i];
-
-        if i >= period {
-            sum -= data[i - period];
-            sum_sq -= data[i - period] * data[i - period];
-        }
-
-        if i >= period - 1 {
-            let mean = sum / period as f64;
-            let variance = (sum_sq / period as f64) - (mean * mean);
-            let stddev = variance.sqrt();
-            let deviation = sigma * stddev;
-            upper_band[i] = Some(round_scalar(mean + deviation, 8));
-            lower_band[i] = Some(round_scalar(mean - deviation, 8));
-        }
-    }
-
-    (upper_band, lower_band)
+    means
+        .into_iter()
+        .zip(stddevs)
+        .map(|(mean, stddev)| match (mean, stddev) {
+            (Some(mean), Some(stddev)) => {
+                let deviation = sigma * stddev;
+                (
+                    Some(round_scalar(mean + deviation, 8)),
+                    Some(round_scalar(mean - deviation, 8)),
+                )
+            }
+            _ => (None, None),
+        })
+        .unzip()
 }
 
 #[cfg(test)]
@@ -73,7 +59,10 @@ mod tests {
     fn test_bband() {
         let test_cases = vec!["005930", "TSLA"];
         for symbol in test_cases {
-            let input = testutils::load_data(&format!("../data/{}.json", symbol), "c");
+            let input = testutils::load_data(&format!("../data/{}.json", symbol), "c")
+                .into_iter()
+                .map(Some)
+                .collect::<Vec<_>>();
             let (upper, middle, lower) = bband(&input, 20, None);
 
             let expected_upper = testutils::load_expected::<Option<f64>>(&format!(
@@ -108,5 +97,27 @@ mod tests {
                 symbol
             );
         }
+    }
+
+    #[test]
+    fn test_bband_with_interior_gap_invalidates_full_window() {
+        let input = vec![Some(1.0), Some(2.0), None, Some(4.0), Some(5.0)];
+
+        let (upper, middle, lower) = bband(&input, 2, Some(2.0));
+
+        assert_eq!(middle, vec![None, Some(1.5), None, None, Some(4.5)]);
+        assert_eq!(upper, vec![None, Some(2.5), None, None, Some(5.5)]);
+        assert_eq!(lower, vec![None, Some(0.5), None, None, Some(3.5)]);
+    }
+
+    #[test]
+    fn test_bband_full_window_invalidation() {
+        let input = vec![None, Some(2.0), None, Some(4.0)];
+
+        let (upper, middle, lower) = bband(&input, 2, None);
+
+        assert_eq!(upper, vec![None, None, None, None]);
+        assert_eq!(middle, vec![None, None, None, None]);
+        assert_eq!(lower, vec![None, None, None, None]);
     }
 }

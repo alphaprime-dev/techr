@@ -1,4 +1,4 @@
-use crate::indicators::ema::ema;
+use crate::indicators::ema::ema_dense;
 
 pub fn efi(closes: &[f64], volumes: &[f64], period: usize) -> Vec<Option<f64>> {
     let len = closes.len();
@@ -22,7 +22,7 @@ pub fn efi(closes: &[f64], volumes: &[f64], period: usize) -> Vec<Option<f64>> {
                 *efi_val = Some(force_val);
             });
     } else {
-        let ema_result = ema(&force, period);
+        let ema_result = ema_dense(&force, period);
         efi.iter_mut()
             .skip(1)
             .zip(ema_result.into_iter())

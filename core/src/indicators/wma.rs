@@ -1,27 +1,11 @@
-pub fn wma(data: &[f64], period: usize) -> Vec<Option<f64>> {
-    let mut result = vec![None; data.len()];
+use crate::utils::rolling_weighted_mean_strict;
 
-    if data.len() < period {
-        return result;
-    }
+fn wma_impl(data: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
+    rolling_weighted_mean_strict(data, period)
+}
 
-    let weight_sum = (period * (period + 1)) / 2;
-    let mut weighted_sum = 0.0;
-
-    // Initialize the first period
-    for i in 0..period {
-        weighted_sum += data[i] * (i + 1) as f64;
-    }
-
-    for i in period - 1..data.len() {
-        result[i] = Some(weighted_sum / weight_sum as f64);
-        if i + 1 < data.len() {
-            weighted_sum = weighted_sum + data[i + 1] * period as f64
-                - data[i + 1 - period..=i].iter().sum::<f64>();
-        }
-    }
-
-    result
+pub fn wma(data: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
+    wma_impl(data, period)
 }
 
 #[cfg(test)]
@@ -34,7 +18,10 @@ mod tests {
     fn test_wma() {
         let test_cases = vec!["005930", "TSLA"];
         for symbol in test_cases {
-            let input = testutils::load_data(&format!("../data/{}.json", symbol), "c");
+            let input = testutils::load_data(&format!("../data/{}.json", symbol), "c")
+                .into_iter()
+                .map(Some)
+                .collect::<Vec<_>>();
             let result = wma(&input, 20);
             let expected = testutils::load_expected::<Option<f64>>(&format!(
                 "../data/expected/wma_{}.json",
@@ -48,5 +35,35 @@ mod tests {
                 symbol
             );
         }
+    }
+
+    #[test]
+    fn test_wma_with_prefix_gap() {
+        let aligned = vec![None, Some(1.0), Some(2.0), Some(3.0)];
+        let expected = vec![None, None, Some(5.0 / 3.0), Some(8.0 / 3.0)];
+
+        let result = wma(&aligned, 2);
+
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_wma_with_interior_gap_invalidates_window() {
+        let aligned = vec![Some(1.0), Some(2.0), None, Some(4.0), Some(5.0)];
+        let expected = vec![None, Some(5.0 / 3.0), None, None, Some(14.0 / 3.0)];
+
+        let result = wma(&aligned, 2);
+
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_wma_full_window_invalidation() {
+        let aligned = vec![Some(1.0), None, None, Some(4.0)];
+        let expected = vec![None, None, None, None];
+
+        let result = wma(&aligned, 2);
+
+        assert_eq!(result, expected);
     }
 }

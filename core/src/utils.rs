@@ -121,8 +121,7 @@ pub fn rolling_midpoint(highs: &[f64], lows: &[f64], period: usize) -> Vec<Optio
         .collect()
 }
 
-/// Computes a rolling mean that only emits a value when the full window contains `Some` values.
-pub fn rolling_mean_strict(data: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
+fn rolling_mean_strict_impl(data: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
     let len = data.len();
     let mut means = vec![None; len];
 
@@ -152,6 +151,99 @@ pub fn rolling_mean_strict(data: &[Option<f64>], period: usize) -> Vec<Option<f6
     }
 
     means
+}
+
+/// Computes a rolling mean that only emits a value when the full window contains valid values.
+pub fn rolling_mean_strict(data: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
+    rolling_mean_strict_impl(data, period)
+}
+
+/// Computes a rolling weighted mean that only emits a value when the full window is valid.
+fn rolling_weighted_mean_strict_impl(data: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
+    let len = data.len();
+    let mut result = vec![None; len];
+
+    if len < period || period == 0 {
+        return result;
+    }
+
+    let weight_sum = (period * (period + 1)) as f64 / 2.0;
+
+    for end in (period - 1)..len {
+        let start = end + 1 - period;
+        let mut weighted_sum = 0.0;
+        let mut valid = true;
+
+        for (offset, item) in data[start..=end].iter().enumerate() {
+            let Some(value) = *item else {
+                valid = false;
+                break;
+            };
+            weighted_sum += value * (offset + 1) as f64;
+        }
+
+        if valid {
+            result[end] = Some(weighted_sum / weight_sum);
+        }
+    }
+
+    result
+}
+
+/// Computes a rolling weighted mean that only emits a value when the full window is valid.
+pub fn rolling_weighted_mean_strict(data: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
+    rolling_weighted_mean_strict_impl(data, period)
+}
+
+/// Computes rolling mean and standard deviation for fully valid windows only.
+fn rolling_mean_stddev_strict_impl(
+    data: &[Option<f64>],
+    period: usize,
+) -> (Vec<Option<f64>>, Vec<Option<f64>>) {
+    let len = data.len();
+    let mut means = vec![None; len];
+    let mut stddevs = vec![None; len];
+
+    if len < period || period == 0 {
+        return (means, stddevs);
+    }
+
+    let mut sum = 0.0;
+    let mut sum_sq = 0.0;
+    let mut valid_count = 0usize;
+
+    for i in 0..len {
+        if let Some(value) = data[i] {
+            sum += value;
+            sum_sq += value * value;
+            valid_count += 1;
+        }
+
+        if i >= period {
+            if let Some(value) = data[i - period] {
+                sum -= value;
+                sum_sq -= value * value;
+                valid_count -= 1;
+            }
+        }
+
+        if i >= period - 1 && valid_count == period {
+            let mean = sum / period as f64;
+            let variance = (sum_sq / period as f64) - (mean * mean);
+            means[i] = Some(mean);
+            stddevs[i] = Some(variance.max(0.0).sqrt());
+        }
+    }
+
+    (means, stddevs)
+}
+
+/// Computes rolling mean and standard deviation for fully valid windows only.
+pub fn rolling_mean_stddev_strict(
+    data: &[Option<f64>],
+    period: usize,
+) -> (Vec<Option<f64>>, Vec<Option<f64>>) {
+    rolling_mean_stddev_strict_impl(data, period)
 }
 
 fn push_max_index(deque: &mut VecDeque<usize>, data: &[f64], idx: usize) {
@@ -391,6 +483,25 @@ mod tests {
         let means = rolling_mean_strict(&data, 2);
 
         assert_eq!(means, vec![None, Some(2.0), None, None, Some(6.0)]);
+    }
+
+    #[test]
+    fn test_rolling_weighted_mean_strict() {
+        let data = vec![None, Some(1.0), Some(2.0), None, Some(4.0)];
+
+        let means = rolling_weighted_mean_strict(&data, 2);
+
+        assert_eq!(means, vec![None, None, Some(5.0 / 3.0), None, None]);
+    }
+
+    #[test]
+    fn test_rolling_mean_stddev_strict() {
+        let data = vec![Some(1.0), Some(2.0), None, Some(4.0), Some(5.0)];
+
+        let (means, stddevs) = rolling_mean_stddev_strict(&data, 2);
+
+        assert_eq!(means, vec![None, Some(1.5), None, None, Some(4.5)]);
+        assert_eq!(stddevs, vec![None, Some(0.5), None, None, Some(0.5)]);
     }
 
     #[test]
