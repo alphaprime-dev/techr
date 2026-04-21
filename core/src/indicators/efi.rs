@@ -1,6 +1,6 @@
-use crate::indicators::ema::ema_dense;
+use crate::indicators::ema::ema_aligned;
 
-pub fn efi(closes: &[f64], volumes: &[f64], period: usize) -> Vec<Option<f64>> {
+pub fn efi(closes: &[Option<f64>], volumes: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
     let len = closes.len();
     let mut efi = vec![None; len];
 
@@ -8,27 +8,19 @@ pub fn efi(closes: &[f64], volumes: &[f64], period: usize) -> Vec<Option<f64>> {
         return efi;
     }
 
-    let force: Vec<f64> = closes
-        .windows(2)
-        .zip(volumes.iter().skip(1))
-        .map(|(window, &volume)| (window[1] - window[0]) * volume)
-        .collect();
+    let mut force = vec![None; len];
+    for i in 1..len {
+        let (Some(close), Some(prev_close), Some(volume)) = (closes[i], closes[i - 1], volumes[i])
+        else {
+            continue;
+        };
+        force[i] = Some((close - prev_close) * volume);
+    }
 
     if period == 1 {
-        efi.iter_mut()
-            .skip(1)
-            .zip(force.iter())
-            .for_each(|(efi_val, &force_val)| {
-                *efi_val = Some(force_val);
-            });
+        efi = force;
     } else {
-        let ema_result = ema_dense(&force, period);
-        efi.iter_mut()
-            .skip(1)
-            .zip(ema_result.into_iter())
-            .for_each(|(efi_val, ema_val)| {
-                *efi_val = ema_val;
-            });
+        efi = ema_aligned(&force, period);
     }
 
     efi
@@ -44,8 +36,14 @@ mod tests {
     fn test_efi() {
         let test_cases = vec!["005930", "TSLA"];
         for symbol in test_cases {
-            let close = testutils::load_data(&format!("../data/{}.json", symbol), "c");
-            let volume = testutils::load_data(&format!("../data/{}.json", symbol), "v");
+            let close = testutils::load_data(&format!("../data/{}.json", symbol), "c")
+                .into_iter()
+                .map(Some)
+                .collect::<Vec<_>>();
+            let volume = testutils::load_data(&format!("../data/{}.json", symbol), "v")
+                .into_iter()
+                .map(Some)
+                .collect::<Vec<_>>();
             let result = efi(&close, &volume, 14);
             let expected = testutils::load_expected::<Option<f64>>(&format!(
                 "../data/expected/efi_{}.json",
@@ -59,5 +57,35 @@ mod tests {
                 symbol
             );
         }
+    }
+
+    #[test]
+    fn test_efi_gap_skips_missing_pair_and_resumes_ema_state() {
+        let closes = vec![
+            Some(10.0),
+            Some(11.0),
+            Some(13.0),
+            None,
+            Some(16.0),
+            Some(17.0),
+        ];
+        let volumes = vec![
+            Some(1.0),
+            Some(2.0),
+            Some(3.0),
+            Some(4.0),
+            Some(5.0),
+            Some(6.0),
+        ];
+
+        let result = efi(&closes, &volumes, 2);
+
+        assert_eq!(
+            round_vec(result, 8),
+            round_vec(
+                vec![None, None, Some(4.0), None, None, Some(5.333333333333333)],
+                8
+            )
+        );
     }
 }

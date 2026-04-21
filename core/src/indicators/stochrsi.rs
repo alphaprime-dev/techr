@@ -1,4 +1,4 @@
-use crate::indicators::rsi;
+use crate::indicators::rsi::rsi_dense;
 use crate::utils::{rolling_max_min, rolling_mean_strict};
 
 pub fn stochrsi(
@@ -14,7 +14,7 @@ pub fn stochrsi(
         return (percent_k, vec![None; len]);
     }
 
-    let rsi_values = rsi(closes, period_rsi);
+    let rsi_values = rsi_dense(closes, period_rsi);
     let rsi_values_with_nan: Vec<f64> = rsi_values
         .iter()
         .map(|value| value.unwrap_or(f64::NAN))

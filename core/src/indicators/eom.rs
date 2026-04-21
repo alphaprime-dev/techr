@@ -1,9 +1,9 @@
-use crate::indicators::sma::{sma_aligned, sma_dense};
+use crate::indicators::sma::sma_aligned;
 
 pub fn eom(
-    highs: &[f64],
-    lows: &[f64],
-    volumes: &[f64],
+    highs: &[Option<f64>],
+    lows: &[Option<f64>],
+    volumes: &[Option<f64>],
     period: usize,
     signal_period: usize,
     scale: f64,
@@ -15,9 +15,9 @@ pub fn eom(
 }
 
 pub fn eom_signal(
-    highs: &[f64],
-    lows: &[f64],
-    volumes: &[f64],
+    highs: &[Option<f64>],
+    lows: &[Option<f64>],
+    volumes: &[Option<f64>],
     period: usize,
     signal_period: usize,
     scale: f64,
@@ -27,9 +27,9 @@ pub fn eom_signal(
 }
 
 pub fn eom_line(
-    highs: &[f64],
-    lows: &[f64],
-    volumes: &[f64],
+    highs: &[Option<f64>],
+    lows: &[Option<f64>],
+    volumes: &[Option<f64>],
     period: usize,
     scale: f64,
 ) -> Vec<Option<f64>> {
@@ -38,29 +38,29 @@ pub fn eom_line(
         return vec![None; len];
     }
 
-    let mut eom_values = Vec::with_capacity(len - 1);
+    let mut eom_values = vec![None; len];
     for i in 1..len {
-        let high_low_avg = (highs[i] + lows[i]) / 2.0;
-        let prev_high_low_avg = (highs[i - 1] + lows[i - 1]) / 2.0;
+        let (Some(high), Some(low), Some(prev_high), Some(prev_low), Some(volume)) =
+            (highs[i], lows[i], highs[i - 1], lows[i - 1], volumes[i])
+        else {
+            continue;
+        };
+
+        let high_low_avg = (high + low) / 2.0;
+        let prev_high_low_avg = (prev_high + prev_low) / 2.0;
         let distance_moved = high_low_avg - prev_high_low_avg;
 
-        let high_low_diff = highs[i] - lows[i];
-        let box_ratio = if high_low_diff != 0.0 && volumes[i] != 0.0 {
-            (volumes[i] / scale) / high_low_diff
+        let high_low_diff = high - low;
+        let box_ratio = if high_low_diff != 0.0 && volume != 0.0 {
+            (volume / scale) / high_low_diff
         } else {
             0.0
         };
 
-        eom_values.push(distance_moved / box_ratio);
+        eom_values[i] = Some(distance_moved / box_ratio);
     }
 
-    let mut eom_line = vec![None; len];
-    let eom_sma = sma_dense(&eom_values, period);
-    for (i, &value) in eom_sma.iter().enumerate() {
-        eom_line[i + 1] = value;
-    }
-
-    eom_line
+    sma_aligned(&eom_values, period)
 }
 
 #[cfg(test)]
@@ -77,9 +77,18 @@ mod tests {
 
         // When
         for symbol in test_cases {
-            let highs = testutils::load_data(&format!("../data/{}.json", symbol), "h");
-            let lows = testutils::load_data(&format!("../data/{}.json", symbol), "l");
-            let volumes = testutils::load_data(&format!("../data/{}.json", symbol), "v");
+            let highs = testutils::load_data(&format!("../data/{}.json", symbol), "h")
+                .into_iter()
+                .map(Some)
+                .collect::<Vec<_>>();
+            let lows = testutils::load_data(&format!("../data/{}.json", symbol), "l")
+                .into_iter()
+                .map(Some)
+                .collect::<Vec<_>>();
+            let volumes = testutils::load_data(&format!("../data/{}.json", symbol), "v")
+                .into_iter()
+                .map(Some)
+                .collect::<Vec<_>>();
 
             let (eom, signal) = eom(&highs, &lows, &volumes, 14, 3, 10000.0);
 
@@ -106,5 +115,37 @@ mod tests {
                 symbol
             );
         }
+    }
+
+    #[test]
+    fn test_eom_gap_invalidates_sma_window_until_full_valid_window_returns() {
+        let highs = vec![
+            Some(10.0),
+            Some(12.0),
+            Some(14.0),
+            None,
+            Some(16.0),
+            Some(18.0),
+        ];
+        let lows = vec![
+            Some(8.0),
+            Some(10.0),
+            Some(12.0),
+            None,
+            Some(14.0),
+            Some(16.0),
+        ];
+        let volumes = vec![
+            Some(100.0),
+            Some(100.0),
+            Some(100.0),
+            None,
+            Some(100.0),
+            Some(100.0),
+        ];
+
+        let result = eom_line(&highs, &lows, &volumes, 2, 100.0);
+
+        assert_eq!(result, vec![None, None, Some(4.0), None, None, None]);
     }
 }
