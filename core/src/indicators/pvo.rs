@@ -1,7 +1,7 @@
-use crate::indicators::ema::{ema_aligned, ema_dense};
+use crate::indicators::ema::ema_aligned;
 
 pub fn pvo(
-    data: &[f64],
+    data: &[Option<f64>],
     fast_period: usize,
     slow_period: usize,
     signal_period: usize,
@@ -21,7 +21,7 @@ pub fn pvo(
 }
 
 pub fn pvo_histogram(
-    data: &[f64],
+    data: &[Option<f64>],
     fast_period: usize,
     slow_period: usize,
     signal_period: usize,
@@ -39,7 +39,7 @@ pub fn pvo_histogram(
 }
 
 pub fn pvo_signal(
-    data: &[f64],
+    data: &[Option<f64>],
     fast_period: usize,
     slow_period: usize,
     signal_period: usize,
@@ -48,15 +48,15 @@ pub fn pvo_signal(
     ema_aligned(&pvo_line, signal_period)
 }
 
-pub fn pvo_line(data: &[f64], fast_period: usize, slow_period: usize) -> Vec<Option<f64>> {
+pub fn pvo_line(data: &[Option<f64>], fast_period: usize, slow_period: usize) -> Vec<Option<f64>> {
     let mut pvo_line = vec![None; data.len()];
 
     if data.len() < slow_period || fast_period >= slow_period {
         return pvo_line;
     }
 
-    let fast_ema = ema_dense(data, fast_period);
-    let slow_ema = ema_dense(data, slow_period);
+    let fast_ema = ema_aligned(data, fast_period);
+    let slow_ema = ema_aligned(data, slow_period);
 
     for i in (slow_period - 1)..data.len() {
         if let (Some(fast), Some(slow)) = (fast_ema[i], slow_ema[i]) {
@@ -83,7 +83,10 @@ mod tests {
 
         // When
         for symbol in test_cases {
-            let input = testutils::load_data(&format!("../data/{}.json", symbol), "v");
+            let input = testutils::load_data(&format!("../data/{}.json", symbol), "v")
+                .into_iter()
+                .map(Some)
+                .collect::<Vec<_>>();
             let (pvo_line, signal_line, histogram) = pvo(&input, 12, 26, 9);
 
             let expected_pvo = testutils::load_expected::<Option<f64>>(&format!(

@@ -1,15 +1,15 @@
 use crate::utils::{rolling_max_min, rolling_mean_strict};
 
 fn stochs_raw_k(
-    highs: &[f64],
-    lows: &[f64],
-    closes: &[f64],
+    highs: &[Option<f64>],
+    lows: &[Option<f64>],
+    closes: &[Option<f64>],
     fastk_period: usize,
 ) -> Vec<Option<f64>> {
     let len = closes.len();
     let mut raw_k = vec![None; len];
 
-    if len < fastk_period {
+    if len != highs.len() || len != lows.len() || len < fastk_period || fastk_period == 0 {
         return raw_k;
     }
 
@@ -20,10 +20,14 @@ fn stochs_raw_k(
             continue;
         };
 
+        let Some(close) = closes[i] else {
+            continue;
+        };
+
         raw_k[i] = if max_high == min_low {
             None
         } else {
-            Some(((closes[i] - min_low) / (max_high - min_low)) * 100.0)
+            Some(((close - min_low) / (max_high - min_low)) * 100.0)
         };
     }
 
@@ -31,9 +35,9 @@ fn stochs_raw_k(
 }
 
 pub fn stoch_percent_k(
-    highs: &[f64],
-    lows: &[f64],
-    closes: &[f64],
+    highs: &[Option<f64>],
+    lows: &[Option<f64>],
+    closes: &[Option<f64>],
     fastk_period: usize,
     slowk_period: usize,
 ) -> Vec<Option<f64>> {
@@ -48,9 +52,9 @@ pub fn stoch_percent_k(
 }
 
 pub fn stoch_percent_d(
-    highs: &[f64],
-    lows: &[f64],
-    closes: &[f64],
+    highs: &[Option<f64>],
+    lows: &[Option<f64>],
+    closes: &[Option<f64>],
     fastk_period: usize,
     slowk_period: usize,
     slowd_period: usize,
@@ -79,9 +83,9 @@ fn stoch_percent_d_from_k(
 }
 
 pub fn stochs(
-    highs: &[f64],
-    lows: &[f64],
-    closes: &[f64],
+    highs: &[Option<f64>],
+    lows: &[Option<f64>],
+    closes: &[Option<f64>],
     fastk_period: usize,
     slowk_period: usize,
     slowd_period: usize,
@@ -101,9 +105,18 @@ mod tests {
     fn test_stochs() {
         let test_cases = vec!["005930", "TSLA"];
         for symbol in test_cases {
-            let high = testutils::load_data(&format!("../data/{}.json", symbol), "h");
-            let low = testutils::load_data(&format!("../data/{}.json", symbol), "l");
-            let close = testutils::load_data(&format!("../data/{}.json", symbol), "c");
+            let high = testutils::load_data(&format!("../data/{}.json", symbol), "h")
+                .into_iter()
+                .map(Some)
+                .collect::<Vec<_>>();
+            let low = testutils::load_data(&format!("../data/{}.json", symbol), "l")
+                .into_iter()
+                .map(Some)
+                .collect::<Vec<_>>();
+            let close = testutils::load_data(&format!("../data/{}.json", symbol), "c")
+                .into_iter()
+                .map(Some)
+                .collect::<Vec<_>>();
 
             let (percent_k, percent_d) = stochs(&high, &low, &close, 14, 3, 3);
 
@@ -129,5 +142,17 @@ mod tests {
                 symbol
             );
         }
+    }
+
+    #[test]
+    fn test_stochs_with_gap_invalidates_slow_windows() {
+        let high = vec![Some(3.0), Some(4.0), Some(5.0), None, Some(7.0), Some(8.0)];
+        let low = vec![Some(1.0), Some(2.0), Some(3.0), None, Some(5.0), Some(6.0)];
+        let close = vec![Some(2.0), Some(3.0), Some(4.0), None, Some(6.0), Some(7.0)];
+
+        let (percent_k, percent_d) = stochs(&high, &low, &close, 3, 2, 2);
+
+        assert_eq!(percent_k, vec![None, None, None, None, None, None]);
+        assert_eq!(percent_d, vec![None, None, None, None, None, None]);
     }
 }

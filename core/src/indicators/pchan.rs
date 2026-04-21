@@ -1,8 +1,8 @@
 use crate::utils::rolling_max_min;
 
 pub fn pchan(
-    highs: &[f64],
-    lows: &[f64],
+    highs: &[Option<f64>],
+    lows: &[Option<f64>],
     period: usize,
 ) -> (Vec<Option<f64>>, Vec<Option<f64>>, Vec<Option<f64>>) {
     let len = highs.len();
@@ -10,7 +10,7 @@ pub fn pchan(
     let mut lower = vec![None; len];
     let mut middle = vec![None; len];
 
-    if period == 0 || len < period {
+    if len != lows.len() || period == 0 || len < period {
         return (upper, middle, lower);
     }
 
@@ -42,6 +42,8 @@ mod tests {
         for symbol in test_cases {
             let highs = testutils::load_data(&format!("../data/{}.json", symbol), "h");
             let lows = testutils::load_data(&format!("../data/{}.json", symbol), "l");
+            let highs = highs.into_iter().map(Some).collect::<Vec<_>>();
+            let lows = lows.into_iter().map(Some).collect::<Vec<_>>();
             let (upper, middle, lower) = pchan(&highs, &lows, 20);
 
             let expected_upper = testutils::load_expected::<Option<f64>>(&format!(
@@ -76,5 +78,17 @@ mod tests {
                 symbol
             );
         }
+    }
+
+    #[test]
+    fn test_pchan_with_gap_invalidates_previous_window() {
+        let highs = vec![Some(3.0), Some(4.0), None, Some(6.0), Some(7.0)];
+        let lows = vec![Some(1.0), Some(2.0), None, Some(4.0), Some(5.0)];
+
+        let (upper, middle, lower) = pchan(&highs, &lows, 2);
+
+        assert_eq!(upper, vec![None, None, Some(4.0), None, None]);
+        assert_eq!(middle, vec![None, None, Some(2.5), None, None]);
+        assert_eq!(lower, vec![None, None, Some(1.0), None, None]);
     }
 }

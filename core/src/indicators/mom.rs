@@ -1,4 +1,4 @@
-pub fn mom(closes: &[f64], period: usize) -> Vec<Option<f64>> {
+pub fn mom(closes: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
     let len = closes.len();
     let mut result = vec![None; len];
 
@@ -7,7 +7,9 @@ pub fn mom(closes: &[f64], period: usize) -> Vec<Option<f64>> {
     }
 
     for i in period..len {
-        result[i] = Some(closes[i] - closes[i - period]);
+        if let (Some(current), Some(prev)) = (closes[i], closes[i - period]) {
+            result[i] = Some(current - prev);
+        }
     }
 
     result
@@ -23,7 +25,10 @@ mod tests {
     fn test_mom() {
         let test_cases = vec!["005930", "TSLA"];
         for symbol in test_cases {
-            let close = testutils::load_data(&format!("../data/{}.json", symbol), "c");
+            let close = testutils::load_data(&format!("../data/{}.json", symbol), "c")
+                .into_iter()
+                .map(Some)
+                .collect::<Vec<_>>();
             let result = mom(&close, 10);
             let expected = testutils::load_expected::<Option<f64>>(&format!(
                 "../data/expected/mom_{}.json",

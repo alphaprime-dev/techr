@@ -1,4 +1,6 @@
-pub fn psl(closes: &[f64], period: usize) -> Vec<Option<f64>> {
+use crate::utils::rolling_sum_strict;
+
+pub fn psl(closes: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
     let mut psl = vec![None; closes.len()];
     let len = closes.len();
 
@@ -6,29 +8,18 @@ pub fn psl(closes: &[f64], period: usize) -> Vec<Option<f64>> {
         return psl;
     }
 
-    let mut count = 0;
+    let changes = closes
+        .windows(2)
+        .map(|window| match (window[0], window[1]) {
+            (Some(prev), Some(current)) => Some(if current > prev { 1.0 } else { 0.0 }),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
 
-    // Count initial positive price changes
-    for i in 1..period {
-        if closes[i] > closes[i - 1] {
-            count += 1;
-        }
-    }
-
-    // Calculate PSL for the rest of the series
+    let sums = rolling_sum_strict(&changes, period);
     for i in period..len {
-        // Add current price change to the count
-        if closes[i] > closes[i - 1] {
-            count += 1;
-        }
-
-        // Calculate PSL value
-        let psl_value = (count as f64 / period as f64) * 100.0;
-        psl[i] = Some(psl_value);
-
-        // Remove oldest price change from the count
-        if closes[i - period + 1] > closes[i - period] {
-            count -= 1;
+        if let Some(sum) = sums[i - 1] {
+            psl[i] = Some((sum / period as f64) * 100.0);
         }
     }
 
@@ -45,7 +36,10 @@ mod tests {
     fn test_psl() {
         let test_cases = vec!["005930", "TSLA"];
         for symbol in test_cases {
-            let close = testutils::load_data(&format!("../data/{}.json", symbol), "c");
+            let close = testutils::load_data(&format!("../data/{}.json", symbol), "c")
+                .into_iter()
+                .map(Some)
+                .collect::<Vec<_>>();
             let result = psl(&close, 12);
             let expected = testutils::load_expected::<Option<f64>>(&format!(
                 "../data/expected/psl_{}.json",
@@ -59,5 +53,14 @@ mod tests {
                 symbol
             );
         }
+    }
+
+    #[test]
+    fn test_psl_with_gap_invalidates_change_window() {
+        let close = vec![Some(1.0), Some(2.0), Some(3.0), None, Some(4.0), Some(5.0)];
+
+        let result = psl(&close, 2);
+
+        assert_eq!(result, vec![None, None, Some(100.0), None, None, None]);
     }
 }

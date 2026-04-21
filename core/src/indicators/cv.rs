@@ -1,6 +1,6 @@
-use crate::indicators::ema::ema_dense;
+use crate::indicators::ema::ema_aligned;
 
-pub fn cv(highs: &[f64], lows: &[f64], period: usize) -> Vec<Option<f64>> {
+pub fn cv(highs: &[Option<f64>], lows: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
     let mut cv = vec![None; highs.len()];
     let len = highs.len();
 
@@ -8,8 +8,15 @@ pub fn cv(highs: &[f64], lows: &[f64], period: usize) -> Vec<Option<f64>> {
         return cv;
     }
 
-    let high_low_diffs: Vec<f64> = highs.iter().zip(lows.iter()).map(|(h, l)| h - l).collect();
-    let ema_high_low_diffs = ema_dense(&high_low_diffs, period);
+    let high_low_diffs = highs
+        .iter()
+        .zip(lows.iter())
+        .map(|(high, low)| match (high, low) {
+            (Some(high), Some(low)) => Some(high - low),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    let ema_high_low_diffs = ema_aligned(&high_low_diffs, period);
 
     for i in period * 2 - 1..len {
         if let (Some(current_ema), Some(previous_ema)) =
@@ -33,8 +40,14 @@ mod tests {
     fn test_cv() {
         let test_cases = vec!["005930", "TSLA"];
         for symbol in test_cases {
-            let high = testutils::load_data(&format!("../data/{}.json", symbol), "h");
-            let low = testutils::load_data(&format!("../data/{}.json", symbol), "l");
+            let high = testutils::load_data(&format!("../data/{}.json", symbol), "h")
+                .into_iter()
+                .map(Some)
+                .collect::<Vec<_>>();
+            let low = testutils::load_data(&format!("../data/{}.json", symbol), "l")
+                .into_iter()
+                .map(Some)
+                .collect::<Vec<_>>();
             let result = cv(&high, &low, 10);
             let expected = testutils::load_expected::<Option<f64>>(&format!(
                 "../data/expected/cv_{}.json",
@@ -48,5 +61,15 @@ mod tests {
                 symbol
             );
         }
+    }
+
+    #[test]
+    fn test_cv_with_gap_requires_both_ema_points() {
+        let high = vec![Some(5.0), Some(6.0), None, Some(8.0), Some(9.0), Some(10.0)];
+        let low = vec![Some(1.0), Some(2.0), None, Some(4.0), Some(5.0), Some(6.0)];
+
+        let result = cv(&high, &low, 2);
+
+        assert_eq!(result, vec![None, None, None, Some(0.0), None, Some(0.0)]);
     }
 }

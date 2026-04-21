@@ -1,7 +1,7 @@
-use crate::indicators::ema::{ema_aligned, ema_dense};
+use crate::indicators::ema::ema_aligned;
 
 pub fn ppo(
-    data: &[f64],
+    data: &[Option<f64>],
     fast_period: usize,
     slow_period: usize,
     signal_period: usize,
@@ -21,7 +21,7 @@ pub fn ppo(
 }
 
 pub fn ppo_histogram(
-    data: &[f64],
+    data: &[Option<f64>],
     fast_period: usize,
     slow_period: usize,
     signal_period: usize,
@@ -39,7 +39,7 @@ pub fn ppo_histogram(
 }
 
 pub fn ppo_signal(
-    data: &[f64],
+    data: &[Option<f64>],
     fast_period: usize,
     slow_period: usize,
     signal_period: usize,
@@ -48,15 +48,15 @@ pub fn ppo_signal(
     ema_aligned(&ppo_line, signal_period)
 }
 
-pub fn ppo_line(data: &[f64], fast_period: usize, slow_period: usize) -> Vec<Option<f64>> {
+pub fn ppo_line(data: &[Option<f64>], fast_period: usize, slow_period: usize) -> Vec<Option<f64>> {
     let mut ppo_line = vec![None; data.len()];
 
     if data.len() < slow_period || fast_period >= slow_period {
         return ppo_line;
     }
 
-    let fast_ema = ema_dense(data, fast_period);
-    let slow_ema = ema_dense(data, slow_period);
+    let fast_ema = ema_aligned(data, fast_period);
+    let slow_ema = ema_aligned(data, slow_period);
 
     for i in (slow_period - 1)..data.len() {
         if let (Some(fast), Some(slow)) = (fast_ema[i], slow_ema[i]) {
@@ -83,7 +83,10 @@ mod tests {
 
         // When
         for symbol in test_cases {
-            let input = testutils::load_data(&format!("../data/{}.json", symbol), "c");
+            let input = testutils::load_data(&format!("../data/{}.json", symbol), "c")
+                .into_iter()
+                .map(Some)
+                .collect::<Vec<_>>();
             let (ppo_line, signal_line, histogram) = ppo(&input, 12, 26, 9);
 
             let expected_ppo = testutils::load_expected::<Option<f64>>(&format!(
@@ -119,5 +122,27 @@ mod tests {
                 symbol
             );
         }
+    }
+
+    #[test]
+    fn test_ppo_with_interior_gap_keeps_alignment() {
+        let input = vec![
+            Some(10.0),
+            Some(11.0),
+            Some(12.0),
+            None,
+            Some(13.0),
+            Some(14.0),
+            Some(15.0),
+        ];
+
+        let (line, signal, histogram) = ppo(&input, 2, 3, 2);
+
+        assert_eq!(line[3], None);
+        assert_eq!(signal[3], None);
+        assert_eq!(histogram[3], None);
+        assert!(line[4].is_some());
+        assert!(signal[4].is_some());
+        assert!(histogram[4].is_some());
     }
 }

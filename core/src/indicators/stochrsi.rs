@@ -1,8 +1,8 @@
-use crate::indicators::rsi::rsi_dense;
+use crate::indicators::rsi::rsi;
 use crate::utils::{rolling_max_min, rolling_mean_strict};
 
 pub fn stochrsi(
-    closes: &[f64],
+    closes: &[Option<f64>],
     period_rsi: usize,
     period_k: usize,
     period_d: usize,
@@ -14,24 +14,10 @@ pub fn stochrsi(
         return (percent_k, vec![None; len]);
     }
 
-    let rsi_values = rsi_dense(closes, period_rsi);
-    let rsi_values_with_nan: Vec<f64> = rsi_values
-        .iter()
-        .map(|value| value.unwrap_or(f64::NAN))
-        .collect();
-    let (rolling_max, rolling_min) =
-        rolling_max_min(&rsi_values_with_nan, &rsi_values_with_nan, period_k);
+    let rsi_values = rsi(closes, period_rsi);
+    let (rolling_max, rolling_min) = rolling_max_min(&rsi_values, &rsi_values, period_k);
 
     for i in (period_rsi + period_k - 1)..len {
-        let valid_values: Vec<f64> = rsi_values[i + 1 - period_k..=i]
-            .iter()
-            .filter_map(|&x| x)
-            .collect();
-
-        if valid_values.len() != period_k {
-            continue;
-        }
-
         let (Some(rsi), Some(rsi_max), Some(rsi_min)) =
             (rsi_values[i], rolling_max[i], rolling_min[i])
         else {
@@ -64,7 +50,10 @@ mod tests {
     fn test_stochrsi() {
         let test_cases = vec!["005930", "TSLA"];
         for symbol in test_cases {
-            let closes = testutils::load_data(&format!("../data/{}.json", symbol), "c");
+            let closes = testutils::load_data(&format!("../data/{}.json", symbol), "c")
+                .into_iter()
+                .map(Some)
+                .collect::<Vec<_>>();
 
             let (percent_k, percent_d) = stochrsi(&closes, 14, 14, 3);
 
@@ -90,5 +79,30 @@ mod tests {
                 symbol
             );
         }
+    }
+
+    #[test]
+    fn test_stochrsi_with_gap_invalidates_rsi_window() {
+        let closes = vec![
+            Some(1.0),
+            Some(2.0),
+            Some(3.0),
+            Some(2.0),
+            None,
+            Some(4.0),
+            Some(5.0),
+            Some(6.0),
+        ];
+
+        let (percent_k, percent_d) = stochrsi(&closes, 3, 2, 2);
+
+        assert_eq!(
+            percent_k,
+            vec![None, None, None, None, None, None, None, Some(100.0)]
+        );
+        assert_eq!(
+            percent_d,
+            vec![None, None, None, None, None, None, None, None]
+        );
     }
 }

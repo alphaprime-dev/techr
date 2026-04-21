@@ -30,86 +30,127 @@ pub fn find_min(data: &[f64]) -> f64 {
     data.iter().cloned().fold(f64::INFINITY, f64::min)
 }
 
-/// Computes rolling max/min values over paired slices using a monotonic queue.
+/// Computes rolling max/min values over paired aligned slices using a monotonic queue.
 ///
-/// NaN inputs are skipped. If a full window contains no finite values for one side,
-/// that side returns `None` for the window.
+/// A window only emits values when both input slices contain a full valid window.
 pub fn rolling_max_min(
-    highs: &[f64],
-    lows: &[f64],
+    highs: &[Option<f64>],
+    lows: &[Option<f64>],
     period: usize,
 ) -> (Vec<Option<f64>>, Vec<Option<f64>>) {
     let len = highs.len();
     let mut rolling_max = vec![None; len];
     let mut rolling_min = vec![None; len];
 
-    if len < period || period == 0 {
+    if len != lows.len() || len < period || period == 0 {
         return (rolling_max, rolling_min);
     }
 
     let mut max_deque = VecDeque::with_capacity(period);
     let mut min_deque = VecDeque::with_capacity(period);
+    let mut valid_highs = 0usize;
+    let mut valid_lows = 0usize;
 
     for i in 0..len {
-        push_max_index(&mut max_deque, highs, i);
-        push_min_index(&mut min_deque, lows, i);
+        if highs[i].is_some() {
+            push_max_index(&mut max_deque, highs, i);
+            valid_highs += 1;
+        }
+        if lows[i].is_some() {
+            push_min_index(&mut min_deque, lows, i);
+            valid_lows += 1;
+        }
 
         if i + 1 < period {
             continue;
+        }
+
+        if i >= period {
+            if highs[i - period].is_some() {
+                valid_highs -= 1;
+            }
+            if lows[i - period].is_some() {
+                valid_lows -= 1;
+            }
         }
 
         let earliest_idx = i + 1 - period;
         evict_expired(&mut max_deque, earliest_idx);
         evict_expired(&mut min_deque, earliest_idx);
 
-        rolling_max[i] = max_deque.front().map(|&idx| highs[idx]);
-        rolling_min[i] = min_deque.front().map(|&idx| lows[idx]);
+        if valid_highs == period && valid_lows == period {
+            rolling_max[i] = max_deque.front().and_then(|&idx| highs[idx]);
+            rolling_min[i] = min_deque.front().and_then(|&idx| lows[idx]);
+        }
     }
 
     (rolling_max, rolling_min)
 }
 
-/// Computes rolling argmax/argmin source indices over paired slices using a monotonic queue.
+/// Computes rolling argmax/argmin source indices over paired aligned slices.
 ///
-/// Returned indices refer to the original input slices. NaN inputs are skipped, so a
-/// window with no finite values on one side returns `None` for that side.
+/// Returned indices refer to the original input slices. A window only emits indices
+/// when both inputs are fully valid across the full window.
 pub fn rolling_argmax_argmin(
-    highs: &[f64],
-    lows: &[f64],
+    highs: &[Option<f64>],
+    lows: &[Option<f64>],
     period: usize,
 ) -> (Vec<Option<usize>>, Vec<Option<usize>>) {
     let len = highs.len();
     let mut max_indices = vec![None; len];
     let mut min_indices = vec![None; len];
 
-    if len < period || period == 0 {
+    if len != lows.len() || len < period || period == 0 {
         return (max_indices, min_indices);
     }
 
     let mut max_deque = VecDeque::with_capacity(period);
     let mut min_deque = VecDeque::with_capacity(period);
+    let mut valid_highs = 0usize;
+    let mut valid_lows = 0usize;
 
     for i in 0..len {
-        push_max_index(&mut max_deque, highs, i);
-        push_min_index(&mut min_deque, lows, i);
+        if highs[i].is_some() {
+            push_max_index(&mut max_deque, highs, i);
+            valid_highs += 1;
+        }
+        if lows[i].is_some() {
+            push_min_index(&mut min_deque, lows, i);
+            valid_lows += 1;
+        }
 
         if i + 1 < period {
             continue;
+        }
+
+        if i >= period {
+            if highs[i - period].is_some() {
+                valid_highs -= 1;
+            }
+            if lows[i - period].is_some() {
+                valid_lows -= 1;
+            }
         }
 
         let earliest_idx = i + 1 - period;
         evict_expired(&mut max_deque, earliest_idx);
         evict_expired(&mut min_deque, earliest_idx);
 
-        max_indices[i] = max_deque.front().copied();
-        min_indices[i] = min_deque.front().copied();
+        if valid_highs == period && valid_lows == period {
+            max_indices[i] = max_deque.front().copied();
+            min_indices[i] = min_deque.front().copied();
+        }
     }
 
     (max_indices, min_indices)
 }
 
 /// Computes the midpoint of the rolling high/low channel for each full window.
-pub fn rolling_midpoint(highs: &[f64], lows: &[f64], period: usize) -> Vec<Option<f64>> {
+pub fn rolling_midpoint(
+    highs: &[Option<f64>],
+    lows: &[Option<f64>],
+    period: usize,
+) -> Vec<Option<f64>> {
     let (rolling_max, rolling_min) = rolling_max_min(highs, lows, period);
     rolling_max
         .into_iter()
@@ -276,13 +317,10 @@ pub fn rolling_mean_stddev_strict(
     (means, stddevs)
 }
 
-fn push_max_index(deque: &mut VecDeque<usize>, data: &[f64], idx: usize) {
-    if data[idx].is_nan() {
-        return;
-    }
-
+fn push_max_index(deque: &mut VecDeque<usize>, data: &[Option<f64>], idx: usize) {
+    let current = data[idx].expect("push_max_index requires a present value");
     while let Some(&back) = deque.back() {
-        if data[back] <= data[idx] {
+        if data[back].expect("deque indices always refer to present values") <= current {
             deque.pop_back();
         } else {
             break;
@@ -291,13 +329,10 @@ fn push_max_index(deque: &mut VecDeque<usize>, data: &[f64], idx: usize) {
     deque.push_back(idx);
 }
 
-fn push_min_index(deque: &mut VecDeque<usize>, data: &[f64], idx: usize) {
-    if data[idx].is_nan() {
-        return;
-    }
-
+fn push_min_index(deque: &mut VecDeque<usize>, data: &[Option<f64>], idx: usize) {
+    let current = data[idx].expect("push_min_index requires a present value");
     while let Some(&back) = deque.back() {
-        if data[back] >= data[idx] {
+        if data[back].expect("deque indices always refer to present values") >= current {
             deque.pop_back();
         } else {
             break;
@@ -504,8 +539,8 @@ mod tests {
 
     #[test]
     fn test_rolling_midpoint() {
-        let highs = vec![10.0, 12.0, 14.0, 16.0, 18.0];
-        let lows = vec![4.0, 6.0, 8.0, 10.0, 12.0];
+        let highs = vec![Some(10.0), Some(12.0), Some(14.0), Some(16.0), Some(18.0)];
+        let lows = vec![Some(4.0), Some(6.0), Some(8.0), Some(10.0), Some(12.0)];
 
         let result = rolling_midpoint(&highs, &lows, 3);
 
@@ -514,8 +549,8 @@ mod tests {
 
     #[test]
     fn test_rolling_max_min() {
-        let highs = vec![1.0, 3.0, 2.0, 5.0, 4.0];
-        let lows = vec![5.0, 2.0, 3.0, 1.0, 4.0];
+        let highs = vec![Some(1.0), Some(3.0), Some(2.0), Some(5.0), Some(4.0)];
+        let lows = vec![Some(5.0), Some(2.0), Some(3.0), Some(1.0), Some(4.0)];
 
         let (rolling_max, rolling_min) = rolling_max_min(&highs, &lows, 3);
 
@@ -531,8 +566,8 @@ mod tests {
 
     #[test]
     fn test_rolling_argmax_argmin_prefers_latest_duplicate() {
-        let highs = vec![1.0, 5.0, 5.0, 2.0];
-        let lows = vec![4.0, 1.0, 1.0, 3.0];
+        let highs = vec![Some(1.0), Some(5.0), Some(5.0), Some(2.0)];
+        let lows = vec![Some(4.0), Some(1.0), Some(1.0), Some(3.0)];
 
         let (max_indices, min_indices) = rolling_argmax_argmin(&highs, &lows, 3);
 
@@ -541,31 +576,31 @@ mod tests {
     }
 
     #[test]
-    fn test_rolling_max_min_ignores_nan_when_finite_values_exist() {
-        let highs = vec![1.0, f64::NAN, 3.0];
-        let lows = vec![5.0, f64::NAN, 2.0];
+    fn test_rolling_max_min_invalidates_window_with_gap() {
+        let highs = vec![Some(1.0), None, Some(3.0)];
+        let lows = vec![Some(5.0), None, Some(2.0)];
 
         let (rolling_max, rolling_min) = rolling_max_min(&highs, &lows, 2);
 
-        assert_eq!(rolling_max, vec![None, Some(1.0), Some(3.0)]);
-        assert_eq!(rolling_min, vec![None, Some(5.0), Some(2.0)]);
+        assert_eq!(rolling_max, vec![None, None, None]);
+        assert_eq!(rolling_min, vec![None, None, None]);
     }
 
     #[test]
-    fn test_rolling_argmax_argmin_ignore_nan_when_finite_values_exist() {
-        let highs = vec![1.0, f64::NAN, 5.0];
-        let lows = vec![4.0, f64::NAN, 1.0];
+    fn test_rolling_argmax_argmin_invalidates_window_with_gap() {
+        let highs = vec![Some(1.0), None, Some(5.0)];
+        let lows = vec![Some(4.0), None, Some(1.0)];
 
         let (max_indices, min_indices) = rolling_argmax_argmin(&highs, &lows, 2);
 
-        assert_eq!(max_indices, vec![None, Some(0), Some(2)]);
-        assert_eq!(min_indices, vec![None, Some(0), Some(2)]);
+        assert_eq!(max_indices, vec![None, None, None]);
+        assert_eq!(min_indices, vec![None, None, None]);
     }
 
     #[test]
-    fn test_rolling_max_min_all_nan_window_returns_none() {
-        let highs = vec![f64::NAN, f64::NAN, f64::NAN];
-        let lows = vec![f64::NAN, f64::NAN, f64::NAN];
+    fn test_rolling_extrema_all_gap_window_returns_none() {
+        let highs = vec![None, None, None];
+        let lows = vec![None, None, None];
 
         let (rolling_max, rolling_min) = rolling_max_min(&highs, &lows, 2);
         let (max_indices, min_indices) = rolling_argmax_argmin(&highs, &lows, 2);

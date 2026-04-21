@@ -1,10 +1,15 @@
 use crate::utils::rolling_max_min;
 
-pub fn willr(highs: &[f64], lows: &[f64], closes: &[f64], period: usize) -> Vec<Option<f64>> {
+pub fn willr(
+    highs: &[Option<f64>],
+    lows: &[Option<f64>],
+    closes: &[Option<f64>],
+    period: usize,
+) -> Vec<Option<f64>> {
     let len = closes.len();
     let mut result = vec![None; len];
 
-    if len < period {
+    if len != highs.len() || len != lows.len() || len < period || period == 0 {
         return result;
     }
 
@@ -15,7 +20,9 @@ pub fn willr(highs: &[f64], lows: &[f64], closes: &[f64], period: usize) -> Vec<
             continue;
         };
 
-        let cc = closes[i];
+        let Some(cc) = closes[i] else {
+            continue;
+        };
         if max_high == min_low {
             result[i] = None;
         } else {
@@ -39,6 +46,9 @@ mod tests {
             let high = testutils::load_data(&format!("../data/{}.json", symbol), "h");
             let low = testutils::load_data(&format!("../data/{}.json", symbol), "l");
             let close = testutils::load_data(&format!("../data/{}.json", symbol), "c");
+            let high = high.into_iter().map(Some).collect::<Vec<_>>();
+            let low = low.into_iter().map(Some).collect::<Vec<_>>();
+            let close = close.into_iter().map(Some).collect::<Vec<_>>();
             let result = willr(&high, &low, &close, 14);
             let expected = testutils::load_expected::<Option<f64>>(&format!(
                 "../data/expected/willr_{}.json",

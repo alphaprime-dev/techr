@@ -1,9 +1,9 @@
 use crate::indicators::aroon;
 
-pub fn aroonosc(highs: &[f64], lows: &[f64], period: usize) -> Vec<Option<f64>> {
+pub fn aroonosc(highs: &[Option<f64>], lows: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
     let mut aroonosc = vec![None; highs.len()];
 
-    if highs.len() < period {
+    if highs.len() != lows.len() || highs.len() < period {
         return aroonosc;
     }
 
@@ -30,6 +30,8 @@ mod tests {
         for symbol in test_cases {
             let highs = testutils::load_data(&format!("../data/{}.json", symbol), "h");
             let lows = testutils::load_data(&format!("../data/{}.json", symbol), "l");
+            let highs = highs.into_iter().map(Some).collect::<Vec<_>>();
+            let lows = lows.into_iter().map(Some).collect::<Vec<_>>();
             let result = aroonosc(&highs, &lows, 25);
 
             let expected = testutils::load_expected::<Option<f64>>(&format!(
@@ -44,5 +46,15 @@ mod tests {
                 symbol
             );
         }
+    }
+
+    #[test]
+    fn test_aroonosc_mismatched_lengths_fail_closed() {
+        let highs = vec![Some(1.0), Some(2.0), Some(3.0)];
+        let lows = vec![Some(1.0), Some(2.0)];
+
+        let result = aroonosc(&highs, &lows, 2);
+
+        assert_eq!(result, vec![None, None, None]);
     }
 }
