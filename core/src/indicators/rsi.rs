@@ -1,3 +1,8 @@
+pub(crate) fn rsi_dense(data: &[f64], period: usize) -> Vec<Option<f64>> {
+    let nullable = data.iter().copied().map(Some).collect::<Vec<_>>();
+    rsi(&nullable, period)
+}
+
 pub fn rsi(data: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
     let mut rsi = vec![None; data.len()];
 

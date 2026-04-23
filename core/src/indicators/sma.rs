@@ -1,5 +1,4 @@
 use crate::utils::rolling_mean_strict;
-
 /// Computes a simple moving average over an aligned nullable series.
 ///
 /// The returned vector keeps the same length as the input and emits `None`

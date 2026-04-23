@@ -17,23 +17,15 @@ fn leading_span_a_from_lines(
     forward_shift(span, base_line_period)
 }
 
-pub fn ichimoku_conversion_line(
-    highs: &[Option<f64>],
-    lows: &[Option<f64>],
-    period: usize,
-) -> Vec<Option<f64>> {
+pub fn ichimoku_conversion_line(highs: &[f64], lows: &[f64], period: usize) -> Vec<Option<f64>> {
     rolling_midpoint(highs, lows, period)
 }
 
-pub fn ichimoku_base_line(
-    highs: &[Option<f64>],
-    lows: &[Option<f64>],
-    period: usize,
-) -> Vec<Option<f64>> {
+pub fn ichimoku_base_line(highs: &[f64], lows: &[f64], period: usize) -> Vec<Option<f64>> {
     rolling_midpoint(highs, lows, period)
 }
 
-pub fn ichimoku_lagging_span(closes: &[Option<f64>], base_line_period: usize) -> Vec<Option<f64>> {
+pub fn ichimoku_lagging_span(closes: &[f64], base_line_period: usize) -> Vec<Option<f64>> {
     let len = closes.len();
     let mut lagging_span = vec![None; len];
 
@@ -42,15 +34,15 @@ pub fn ichimoku_lagging_span(closes: &[Option<f64>], base_line_period: usize) ->
     }
 
     for i in (base_line_period - 1)..len {
-        lagging_span[i + 1 - base_line_period] = closes[i];
+        lagging_span[i + 1 - base_line_period] = Some(closes[i]);
     }
 
     lagging_span
 }
 
 pub fn ichimoku_leading_span_a(
-    highs: &[Option<f64>],
-    lows: &[Option<f64>],
+    highs: &[f64],
+    lows: &[f64],
     conversion_line_period: usize,
     base_line_period: usize,
 ) -> Vec<Option<f64>> {
@@ -60,8 +52,8 @@ pub fn ichimoku_leading_span_a(
 }
 
 pub fn ichimoku_leading_span_b(
-    highs: &[Option<f64>],
-    lows: &[Option<f64>],
+    highs: &[f64],
+    lows: &[f64],
     period: usize,
     base_line_period: usize,
 ) -> Vec<Option<f64>> {
@@ -69,9 +61,9 @@ pub fn ichimoku_leading_span_b(
 }
 
 pub fn ichimoku(
-    highs: &[Option<f64>],
-    lows: &[Option<f64>],
-    closes: &[Option<f64>],
+    highs: &[f64],
+    lows: &[f64],
+    closes: &[f64],
     conversion_line_period: usize,
     base_line_period: usize,
     leading_span_b_period: usize,
@@ -82,18 +74,6 @@ pub fn ichimoku(
     Vec<Option<f64>>, // Leading span A
     Vec<Option<f64>>, // Leading span B
 ) {
-    if highs.len() != lows.len() || highs.len() != closes.len() {
-        let len = highs.len();
-        let projected_len = len.saturating_add(base_line_period.saturating_sub(1));
-        return (
-            vec![None; len],
-            vec![None; len],
-            vec![None; len],
-            vec![None; projected_len],
-            vec![None; projected_len],
-        );
-    }
-
     let conversion_line = ichimoku_conversion_line(highs, lows, conversion_line_period);
     let base_line = ichimoku_base_line(highs, lows, base_line_period);
     let lagging_span = ichimoku_lagging_span(closes, base_line_period);
@@ -122,9 +102,6 @@ mod tests {
             let high = testutils::load_data(&format!("../data/{}.json", symbol), "h");
             let low = testutils::load_data(&format!("../data/{}.json", symbol), "l");
             let close = testutils::load_data(&format!("../data/{}.json", symbol), "c");
-            let high = high.into_iter().map(Some).collect::<Vec<_>>();
-            let low = low.into_iter().map(Some).collect::<Vec<_>>();
-            let close = close.into_iter().map(Some).collect::<Vec<_>>();
 
             let (conversion_line, base_line, lagging_span, leading_span_a, leading_span_b) =
                 ichimoku(&high, &low, &close, 9, 26, 52);
@@ -181,29 +158,5 @@ mod tests {
                 symbol
             );
         }
-    }
-
-    #[test]
-    fn test_ichimoku_lagging_span_preserves_gap_when_shifted() {
-        let closes = vec![Some(1.0), Some(2.0), None, Some(4.0)];
-
-        let lagging = ichimoku_lagging_span(&closes, 2);
-
-        assert_eq!(lagging, vec![Some(2.0), None, Some(4.0), None]);
-    }
-
-    #[test]
-    fn test_ichimoku_mismatched_lengths_fail_closed_with_aligned_shapes() {
-        let highs = vec![Some(1.0), Some(2.0), Some(3.0)];
-        let lows = vec![Some(1.0), Some(2.0)];
-        let closes = vec![Some(1.0), Some(2.0), Some(3.0), Some(4.0)];
-
-        let (conversion, base, lagging, span_a, span_b) = ichimoku(&highs, &lows, &closes, 2, 3, 4);
-
-        assert_eq!(conversion, vec![None, None, None]);
-        assert_eq!(base, vec![None, None, None]);
-        assert_eq!(lagging, vec![None, None, None]);
-        assert_eq!(span_a, vec![None, None, None, None, None]);
-        assert_eq!(span_b, vec![None, None, None, None, None]);
     }
 }

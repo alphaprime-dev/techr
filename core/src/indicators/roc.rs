@@ -1,4 +1,4 @@
-pub fn roc(closes: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
+pub fn roc(closes: &[f64], period: usize) -> Vec<Option<f64>> {
     let len = closes.len();
     let mut result = vec![None; len];
 
@@ -7,9 +7,9 @@ pub fn roc(closes: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
     }
 
     for i in period..len {
-        if let (Some(curr_close), Some(prev_close)) = (closes[i], closes[i - period]) {
-            result[i] = Some(((curr_close - prev_close) / prev_close) * 100.0);
-        }
+        let curr_close = closes[i];
+        let prev_close = closes[i - period];
+        result[i] = Some(((curr_close - prev_close) / prev_close) * 100.0);
     }
 
     result
@@ -25,10 +25,7 @@ mod tests {
     fn test_roc() {
         let test_cases = vec!["005930", "TSLA"];
         for symbol in test_cases {
-            let close = testutils::load_data(&format!("../data/{}.json", symbol), "c")
-                .into_iter()
-                .map(Some)
-                .collect::<Vec<_>>();
+            let close = testutils::load_data(&format!("../data/{}.json", symbol), "c");
             let result = roc(&close, 20);
             let expected = testutils::load_expected::<Option<f64>>(&format!(
                 "../data/expected/roc_{}.json",
