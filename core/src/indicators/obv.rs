@@ -1,4 +1,4 @@
-use crate::indicators::ema::ema_aligned;
+use crate::indicators::ema::ema_reseed_on_gap;
 
 pub fn obv(
     data: &[Option<f64>],
@@ -6,7 +6,7 @@ pub fn obv(
     signal_period: usize,
 ) -> (Vec<Option<f64>>, Vec<Option<f64>>) {
     let obv_line = obv_line(data, volumes);
-    let obv_signal = ema_aligned(&obv_line, signal_period);
+    let obv_signal = ema_reseed_on_gap(&obv_line, signal_period);
 
     (obv_line, obv_signal)
 }
@@ -17,7 +17,7 @@ pub fn obv_signal(
     signal_period: usize,
 ) -> Vec<Option<f64>> {
     let obv_line = obv_line(data, volumes);
-    ema_aligned(&obv_line, signal_period)
+    ema_reseed_on_gap(&obv_line, signal_period)
 }
 
 pub fn obv_line(data: &[Option<f64>], volumes: &[Option<f64>]) -> Vec<Option<f64>> {
@@ -119,6 +119,44 @@ mod tests {
         assert_eq!(
             result,
             vec![Some(100.0), Some(150.0), None, None, Some(130.0)]
+        );
+    }
+
+    #[test]
+    fn test_obv_signal_reseeds_after_gap_in_line() {
+        let closes = vec![
+            Some(10.0),
+            Some(11.0),
+            None,
+            Some(13.0),
+            Some(12.0),
+            Some(14.0),
+        ];
+        let volumes = vec![
+            Some(100.0),
+            Some(50.0),
+            Some(40.0),
+            Some(30.0),
+            Some(20.0),
+            Some(10.0),
+        ];
+
+        let (line, signal) = obv(&closes, &volumes, 2);
+
+        assert_eq!(
+            line,
+            vec![
+                Some(100.0),
+                Some(150.0),
+                None,
+                None,
+                Some(130.0),
+                Some(140.0)
+            ]
+        );
+        assert_eq!(
+            signal,
+            vec![None, Some(125.0), None, None, None, Some(135.0)]
         );
     }
 }

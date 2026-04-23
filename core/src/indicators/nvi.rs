@@ -1,4 +1,4 @@
-use crate::indicators::ema::ema_aligned;
+use crate::indicators::ema::ema_reseed_on_gap;
 
 pub fn nvi(
     closes: &[Option<f64>],
@@ -6,7 +6,7 @@ pub fn nvi(
     signal_period: usize,
 ) -> (Vec<Option<f64>>, Vec<Option<f64>>) {
     let nvi_line = nvi_line(closes, volumes);
-    let signal = ema_aligned(&nvi_line, signal_period);
+    let signal = ema_reseed_on_gap(&nvi_line, signal_period);
 
     (nvi_line, signal)
 }
@@ -17,7 +17,7 @@ pub fn nvi_signal(
     signal_period: usize,
 ) -> Vec<Option<f64>> {
     let nvi_line = nvi_line(closes, volumes);
-    ema_aligned(&nvi_line, signal_period)
+    ema_reseed_on_gap(&nvi_line, signal_period)
 }
 
 pub fn nvi_line(closes: &[Option<f64>], volumes: &[Option<f64>]) -> Vec<Option<f64>> {
@@ -116,6 +116,44 @@ mod tests {
         assert_eq!(
             result,
             vec![Some(1000.0), Some(1020.0), None, None, Some(1040.0)]
+        );
+    }
+
+    #[test]
+    fn test_nvi_signal_reseeds_after_gap_in_line() {
+        let closes = vec![
+            Some(10.0),
+            Some(12.0),
+            None,
+            Some(15.0),
+            Some(18.0),
+            Some(27.0),
+        ];
+        let volumes = vec![
+            Some(100.0),
+            Some(80.0),
+            Some(90.0),
+            Some(70.0),
+            Some(60.0),
+            Some(50.0),
+        ];
+
+        let (line, signal) = nvi(&closes, &volumes, 2);
+
+        assert_eq!(
+            line,
+            vec![
+                Some(1000.0),
+                Some(1020.0),
+                None,
+                None,
+                Some(1040.0),
+                Some(1090.0),
+            ]
+        );
+        assert_eq!(
+            signal,
+            vec![None, Some(1010.0), None, None, None, Some(1065.0)]
         );
     }
 }
