@@ -20,6 +20,17 @@ pub fn co(
         return co;
     }
 
+    if len < period_long {
+        return co;
+    }
+
+    if period_long == period_short {
+        return ad(highs, lows, closes, volumes)
+            .into_iter()
+            .map(|value| value.map(|_| 0.0))
+            .collect();
+    }
+
     let ad_values = ad(highs, lows, closes, volumes);
     let short_k = 2.0 / (period_short as f64 + 1.0);
     let long_k = 2.0 / (period_long as f64 + 1.0);
@@ -149,6 +160,21 @@ mod tests {
         assert_eq!(
             result,
             vec![None, None, None, None, None, Some(0.0), None, Some(0.0)]
+        );
+    }
+
+    #[test]
+    fn test_co_equal_periods_return_zero_on_valid_ad_rows() {
+        let highs = vec![Some(10.0), Some(12.0), None, Some(14.0), Some(16.0)];
+        let lows = vec![Some(8.0), Some(10.0), None, Some(12.0), Some(14.0)];
+        let closes = vec![Some(9.0), Some(11.0), None, Some(13.0), Some(15.0)];
+        let volumes = vec![Some(100.0), Some(100.0), None, Some(100.0), Some(100.0)];
+
+        let result = co(&highs, &lows, &closes, &volumes, 3, 3);
+
+        assert_eq!(
+            result,
+            vec![Some(0.0), Some(0.0), None, Some(0.0), Some(0.0)]
         );
     }
 }
