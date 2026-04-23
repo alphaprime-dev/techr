@@ -5,7 +5,6 @@ on:
     types: [review_requested, ready_for_review, synchronize]
     paths:
       - ".github/workflows/polars-*.yml"
-      - "!.github/workflows/polars-ci.yml"
       - "Cargo.toml"
       - "Makefile"
       - "polars/**"
@@ -18,7 +17,26 @@ permissions:
   contents: read
 
 jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      validate: ${{ steps.filter.outputs.validate }}
+    steps:
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            validate:
+              - "Cargo.toml"
+              - "Makefile"
+              - "polars/**"
+
   validate:
+    needs: preflight
+    if: ${{ needs.preflight.outputs.validate == 'true' }}
     runs-on: ubuntu-latest
     defaults:
       run:
