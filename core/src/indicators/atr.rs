@@ -17,6 +17,10 @@ pub fn atr(
 
     for i in 1..len {
         let (Some(high), Some(low), Some(prev_close)) = (highs[i], lows[i], closes[i - 1]) else {
+            if prev_atr.is_none() {
+                tr_sum = 0.0;
+                seeded_ranges = 0;
+            }
             continue;
         };
 
@@ -116,5 +120,37 @@ mod tests {
             result,
             vec![None, None, Some(2.5), None, None, Some(2.3333333333333335)]
         );
+    }
+
+    #[test]
+    fn test_atr_requires_contiguous_seed_window() {
+        let highs = vec![
+            Some(10.0),
+            Some(12.0),
+            None,
+            Some(14.0),
+            Some(15.0),
+            Some(16.0),
+        ];
+        let lows = vec![
+            Some(8.0),
+            Some(10.0),
+            None,
+            Some(12.0),
+            Some(13.0),
+            Some(14.0),
+        ];
+        let closes = vec![
+            Some(9.0),
+            Some(11.0),
+            None,
+            Some(13.0),
+            Some(14.0),
+            Some(15.0),
+        ];
+
+        let result = atr(&highs, &lows, &closes, 3);
+
+        assert_eq!(result, vec![None, None, None, None, None, Some(2.0)]);
     }
 }

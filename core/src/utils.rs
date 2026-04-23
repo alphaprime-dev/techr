@@ -406,6 +406,10 @@ pub fn wilders_smoothing_aligned(data: &[Option<f64>], period: usize) -> Vec<Opt
 
     for (idx, item) in data.iter().enumerate() {
         let Some(value) = *item else {
+            if smoothed.is_none() {
+                seed_count = 0;
+                seed_sum = 0.0;
+            }
             continue;
         };
 
@@ -704,5 +708,14 @@ mod tests {
         let result = wilders_smoothing_aligned(&data, 2);
 
         assert_eq!(result, vec![None, Some(2.5), None, Some(4.25), Some(6.125)]);
+    }
+
+    #[test]
+    fn test_calc_wilders_smoothing_aligned_requires_contiguous_seed_window() {
+        let data = vec![Some(1.0), None, Some(2.0), Some(3.0), Some(4.0)];
+
+        let result = wilders_smoothing_aligned(&data, 2);
+
+        assert_eq!(result, vec![None, None, None, Some(4.0), Some(6.0)]);
     }
 }

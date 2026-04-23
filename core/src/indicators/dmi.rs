@@ -156,6 +156,39 @@ mod tests {
     }
 
     #[test]
+    fn test_dmi_requires_contiguous_seed_window() {
+        let highs = vec![
+            Some(10.0),
+            Some(12.0),
+            None,
+            Some(13.0),
+            Some(14.0),
+            Some(15.0),
+        ];
+        let lows = vec![
+            Some(8.0),
+            Some(9.0),
+            None,
+            Some(11.0),
+            Some(12.0),
+            Some(13.0),
+        ];
+        let closes = vec![
+            Some(9.0),
+            Some(11.0),
+            None,
+            Some(12.0),
+            Some(13.0),
+            Some(14.0),
+        ];
+
+        let (plus_di, minus_di) = dmi(&highs, &lows, &closes, 2);
+
+        assert_eq!(plus_di, vec![None, None, None, None, None, Some(50.0)]);
+        assert_eq!(minus_di, vec![None, None, None, None, None, Some(0.0)]);
+    }
+
+    #[test]
     fn test_dmi_non_synchronous_predecessor_gap_does_not_advance_tr_state() {
         let highs = vec![
             Some(10.0),

@@ -18,6 +18,11 @@ pub fn rsi(data: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
 
     for i in 1..data.len() {
         let (Some(current), Some(prev)) = (data[i], data[i - 1]) else {
+            if avg_up.is_none() {
+                total_up = 0.0;
+                total_down = 0.0;
+                seeded_changes = 0;
+            }
             continue;
         };
 
@@ -113,6 +118,26 @@ mod tests {
                 None,
                 Some(77.77777777777779),
             ]
+        );
+    }
+
+    #[test]
+    fn test_rsi_requires_contiguous_seed_window() {
+        let aligned = vec![
+            Some(1.0),
+            Some(2.0),
+            None,
+            Some(3.0),
+            Some(4.0),
+            Some(5.0),
+            Some(4.0),
+        ];
+
+        let result = rsi(&aligned, 3);
+
+        assert_eq!(
+            result,
+            vec![None, None, None, None, None, None, Some(66.66666666666666)]
         );
     }
 }

@@ -25,6 +25,10 @@ pub fn adx(
             (Some(_), Some(_)) => Some(0.0),
             _ => None,
         }) else {
+            if adx_point.is_none() {
+                dx_sum = 0.0;
+                seeded = 0;
+            }
             continue;
         };
 
@@ -77,5 +81,63 @@ mod tests {
                 symbol
             );
         }
+    }
+
+    #[test]
+    fn test_adx_requires_contiguous_seed_window_and_resumes_after_gap() {
+        let highs = vec![
+            Some(10.0),
+            Some(12.0),
+            Some(14.0),
+            None,
+            Some(15.0),
+            Some(16.0),
+            Some(18.0),
+            None,
+            Some(19.0),
+            Some(20.0),
+        ];
+        let lows = vec![
+            Some(8.0),
+            Some(9.0),
+            Some(11.0),
+            None,
+            Some(13.0),
+            Some(14.0),
+            Some(15.0),
+            None,
+            Some(17.0),
+            Some(18.0),
+        ];
+        let closes = vec![
+            Some(9.0),
+            Some(11.0),
+            Some(13.0),
+            None,
+            Some(14.0),
+            Some(15.0),
+            Some(17.0),
+            None,
+            Some(18.0),
+            Some(19.0),
+        ];
+
+        let result = adx(&highs, &lows, &closes, 2, 2);
+
+        assert_eq!(
+            result,
+            vec![
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(100.0),
+                None,
+                None,
+                Some(100.0)
+            ]
+        );
     }
 }
