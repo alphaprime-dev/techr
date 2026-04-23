@@ -1,4 +1,4 @@
-use crate::indicators::ema::ema_aligned;
+use crate::indicators::ema::{ema_aligned, ema_reseed_on_gap};
 
 pub fn ppo(
     data: &[Option<f64>],
@@ -7,7 +7,7 @@ pub fn ppo(
     signal_period: usize,
 ) -> (Vec<Option<f64>>, Vec<Option<f64>>, Vec<Option<f64>>) {
     let ppo_line = ppo_line(data, fast_period, slow_period);
-    let signal_line = ema_aligned(&ppo_line, signal_period);
+    let signal_line = ema_reseed_on_gap(&ppo_line, signal_period);
     let histogram = ppo_line
         .iter()
         .zip(signal_line.iter())
@@ -27,7 +27,7 @@ pub fn ppo_histogram(
     signal_period: usize,
 ) -> Vec<Option<f64>> {
     let ppo_line = ppo_line(data, fast_period, slow_period);
-    let signal_line = ema_aligned(&ppo_line, signal_period);
+    let signal_line = ema_reseed_on_gap(&ppo_line, signal_period);
     ppo_line
         .iter()
         .zip(signal_line.iter())
@@ -45,7 +45,7 @@ pub fn ppo_signal(
     signal_period: usize,
 ) -> Vec<Option<f64>> {
     let ppo_line = ppo_line(data, fast_period, slow_period);
-    ema_aligned(&ppo_line, signal_period)
+    ema_reseed_on_gap(&ppo_line, signal_period)
 }
 
 pub fn ppo_line(data: &[Option<f64>], fast_period: usize, slow_period: usize) -> Vec<Option<f64>> {
@@ -125,24 +125,34 @@ mod tests {
     }
 
     #[test]
-    fn test_ppo_with_interior_gap_keeps_alignment() {
+    fn test_ppo_signal_reseeds_after_sparse_gap() {
         let input = vec![
             Some(10.0),
             Some(11.0),
             Some(12.0),
-            None,
             Some(13.0),
+            None,
             Some(14.0),
             Some(15.0),
+            Some(16.0),
         ];
 
         let (line, signal, histogram) = ppo(&input, 2, 3, 2);
 
-        assert_eq!(line[3], None);
-        assert_eq!(signal[3], None);
-        assert_eq!(histogram[3], None);
-        assert!(line[4].is_some());
-        assert!(signal[4].is_some());
-        assert!(histogram[4].is_some());
+        assert!(line[3].is_some());
+        assert_eq!(line[4], None);
+        assert!(line[5].is_some());
+        assert!(line[6].is_some());
+
+        assert!(signal[3].is_some());
+        assert_eq!(signal[4], None);
+        assert_eq!(signal[5], None);
+        assert!((signal[6].unwrap() - ((line[5].unwrap() + line[6].unwrap()) / 2.0)).abs() < 1e-12);
+        assert!(signal[7].unwrap() < signal[6].unwrap());
+
+        assert!(histogram[3].is_some());
+        assert_eq!(histogram[4], None);
+        assert_eq!(histogram[5], None);
+        assert!(histogram[6].is_some());
     }
 }

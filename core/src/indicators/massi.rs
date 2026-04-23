@@ -1,4 +1,4 @@
-use crate::indicators::ema::ema_aligned;
+use crate::indicators::ema::{ema_aligned, ema_reseed_on_gap};
 use crate::utils::rolling_sum_strict;
 
 pub fn massi(
@@ -9,7 +9,7 @@ pub fn massi(
     period_signal: usize,
 ) -> (Vec<Option<f64>>, Vec<Option<f64>>) {
     let mass = massi_line(highs, lows, period_ema, period_sum);
-    let signal = ema_aligned(&mass, period_signal);
+    let signal = ema_reseed_on_gap(&mass, period_signal);
 
     (mass, signal)
 }
@@ -22,7 +22,7 @@ pub fn massi_signal(
     period_signal: usize,
 ) -> Vec<Option<f64>> {
     let mass = massi_line(highs, lows, period_ema, period_sum);
-    ema_aligned(&mass, period_signal)
+    ema_reseed_on_gap(&mass, period_signal)
 }
 
 pub fn massi_line(
@@ -137,6 +137,67 @@ mod tests {
         assert_eq!(
             line,
             vec![None, None, None, None, None, Some(2.0), Some(2.0)]
+        );
+    }
+
+    #[test]
+    fn test_massi_signal_reseeds_after_sparse_gap() {
+        let highs = vec![
+            Some(5.0),
+            Some(6.0),
+            Some(7.0),
+            Some(8.0),
+            Some(9.0),
+            None,
+            Some(10.0),
+            Some(11.0),
+            Some(12.0),
+            Some(13.0),
+        ];
+        let lows = vec![
+            Some(1.0),
+            Some(2.0),
+            Some(3.0),
+            Some(4.0),
+            Some(5.0),
+            None,
+            Some(6.0),
+            Some(7.0),
+            Some(8.0),
+            Some(9.0),
+        ];
+
+        let (line, signal) = massi(&highs, &lows, 2, 2, 2);
+
+        assert_eq!(
+            line,
+            vec![
+                None,
+                None,
+                None,
+                Some(2.0),
+                Some(2.0),
+                None,
+                None,
+                Some(2.0),
+                Some(2.0),
+                Some(2.0),
+            ]
+        );
+        assert_eq!(
+            signal,
+            vec![
+                None,
+                None,
+                None,
+                None,
+                Some(2.0),
+                None,
+                None,
+                None,
+                Some(2.0),
+                Some(2.0),
+            ]
         );
     }
 }

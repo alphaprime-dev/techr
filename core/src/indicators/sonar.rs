@@ -1,4 +1,4 @@
-use crate::indicators::ema::ema_aligned;
+use crate::indicators::ema::{ema_aligned, ema_reseed_on_gap};
 
 pub fn sonar(
     data: &[Option<f64>],
@@ -7,7 +7,7 @@ pub fn sonar(
     signal_period: usize,
 ) -> (Vec<Option<f64>>, Vec<Option<f64>>) {
     let sonar_line = sonar_line(data, period, step);
-    let signal_line = ema_aligned(&sonar_line, signal_period);
+    let signal_line = ema_reseed_on_gap(&sonar_line, signal_period);
 
     (sonar_line, signal_line)
 }
@@ -19,7 +19,7 @@ pub fn sonar_signal(
     signal_period: usize,
 ) -> Vec<Option<f64>> {
     let sonar_line = sonar_line(data, period, step);
-    ema_aligned(&sonar_line, signal_period)
+    ema_reseed_on_gap(&sonar_line, signal_period)
 }
 
 pub fn sonar_line(data: &[Option<f64>], period: usize, step: usize) -> Vec<Option<f64>> {
@@ -102,6 +102,40 @@ mod tests {
         assert_eq!(
             line,
             vec![None, None, None, None, Some(1.0), None, Some(2.0)]
+        );
+    }
+
+    #[test]
+    fn test_sonar_signal_reseeds_after_sparse_gap() {
+        let input = vec![
+            Some(1.0),
+            Some(2.0),
+            Some(3.0),
+            Some(4.0),
+            None,
+            Some(5.0),
+            Some(6.0),
+            Some(7.0),
+        ];
+
+        let (line, signal) = sonar(&input, 2, 1, 2);
+
+        assert_eq!(
+            line,
+            vec![
+                None,
+                None,
+                Some(1.0),
+                Some(1.0),
+                None,
+                None,
+                Some(1.0),
+                Some(1.0),
+            ]
+        );
+        assert_eq!(
+            signal,
+            vec![None, None, None, Some(1.0), None, None, None, Some(1.0),]
         );
     }
 }
