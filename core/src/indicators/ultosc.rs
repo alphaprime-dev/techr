@@ -40,11 +40,18 @@ pub fn ultosc(
             medium_tr[i],
             long_tr[i],
         ) {
+            if short_tr == 0.0 || medium_tr == 0.0 || long_tr == 0.0 {
+                continue;
+            }
+
             let uo_point =
                 ((long_bp / long_tr + 2.0 * (medium_bp / medium_tr) + 4.0 * (short_bp / short_tr))
                     * 100.0)
                     / 7.0;
-            ultosc[i] = Some(uo_point);
+
+            if uo_point.is_finite() {
+                ultosc[i] = Some(uo_point);
+            }
         }
     }
 
@@ -155,5 +162,16 @@ mod tests {
         let result = ultosc(&highs, &lows, &closes, 2, 3, 4);
 
         assert_eq!(result, vec![None, None, None, None, None, None, None]);
+    }
+
+    #[test]
+    fn test_ultosc_flat_windows_fail_closed_instead_of_emitting_nan() {
+        let highs = vec![Some(10.0); 6];
+        let lows = vec![Some(10.0); 6];
+        let closes = vec![Some(10.0); 6];
+
+        let result = ultosc(&highs, &lows, &closes, 2, 3, 4);
+
+        assert_eq!(result, vec![None, None, None, None, None, None]);
     }
 }

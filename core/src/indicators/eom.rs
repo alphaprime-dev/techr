@@ -51,13 +51,16 @@ pub fn eom_line(
         let distance_moved = high_low_avg - prev_high_low_avg;
 
         let high_low_diff = high - low;
-        let box_ratio = if high_low_diff != 0.0 && volume != 0.0 {
-            (volume / scale) / high_low_diff
-        } else {
-            0.0
-        };
+        if high_low_diff == 0.0 || volume == 0.0 {
+            continue;
+        }
 
-        eom_values[i] = Some(distance_moved / box_ratio);
+        let box_ratio = (volume / scale) / high_low_diff;
+        let eom_point = distance_moved / box_ratio;
+
+        if eom_point.is_finite() {
+            eom_values[i] = Some(eom_point);
+        }
     }
 
     sma_aligned(&eom_values, period)
@@ -147,5 +150,27 @@ mod tests {
         let result = eom_line(&highs, &lows, &volumes, 2, 100.0);
 
         assert_eq!(result, vec![None, None, Some(4.0), None, None, None]);
+    }
+
+    #[test]
+    fn test_eom_flat_candles_fail_closed_instead_of_emitting_nan() {
+        let highs = vec![Some(10.0); 4];
+        let lows = vec![Some(10.0); 4];
+        let volumes = vec![Some(1000.0); 4];
+
+        let result = eom_line(&highs, &lows, &volumes, 2, 100.0);
+
+        assert_eq!(result, vec![None, None, None, None]);
+    }
+
+    #[test]
+    fn test_eom_zero_volume_fails_closed_instead_of_emitting_inf() {
+        let highs = vec![Some(10.0), Some(11.0), Some(12.0), Some(13.0)];
+        let lows = vec![Some(9.0), Some(10.0), Some(11.0), Some(12.0)];
+        let volumes = vec![Some(1000.0), Some(0.0), Some(1000.0), Some(1000.0)];
+
+        let result = eom_line(&highs, &lows, &volumes, 2, 100.0);
+
+        assert_eq!(result, vec![None, None, None, Some(0.1)]);
     }
 }
