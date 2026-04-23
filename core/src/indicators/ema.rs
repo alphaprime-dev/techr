@@ -12,6 +12,10 @@ fn ema_impl(data: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
 
     for (idx, item) in data.iter().enumerate() {
         let Some(value) = *item else {
+            if ema.is_none() {
+                seeded_count = 0;
+                seed_sum = 0.0;
+            }
             continue;
         };
 
@@ -42,7 +46,8 @@ pub(crate) fn ema_dense(data: &[f64], period: usize) -> Vec<Option<f64>> {
 /// Computes an exponential moving average over an aligned nullable series.
 ///
 /// The returned vector keeps the same length as the input and emits `None`
-/// until the first full valid `period` observations have been observed.
+/// until the first contiguous run of `period` valid observations has been
+/// observed. Once seeded, gaps emit `None` without resetting the EMA state.
 pub fn ema(data: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
     ema_impl(data, period)
 }
@@ -106,9 +111,17 @@ mod tests {
     }
 
     #[test]
-    fn test_ema_full_window_invalidation_before_seed() {
-        let aligned = vec![Some(1.0), None, Some(3.0), None];
-        let expected = vec![None, None, None, None];
+    fn test_ema_requires_contiguous_values_before_seed() {
+        let aligned = vec![
+            Some(1.0),
+            Some(2.0),
+            None,
+            Some(3.0),
+            Some(4.0),
+            Some(5.0),
+            Some(6.0),
+        ];
+        let expected = vec![None, None, None, None, None, Some(4.0), Some(5.0)];
 
         let result = ema(&aligned, 3);
 
