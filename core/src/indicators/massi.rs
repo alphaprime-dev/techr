@@ -1,4 +1,4 @@
-use crate::indicators::ema::{ema_aligned, ema_reseed_on_gap};
+use crate::indicators::ema::ema_aligned;
 use crate::utils::rolling_sum_strict;
 
 pub fn massi(
@@ -9,7 +9,7 @@ pub fn massi(
     period_signal: usize,
 ) -> (Vec<Option<f64>>, Vec<Option<f64>>) {
     let mass = massi_line(highs, lows, period_ema, period_sum);
-    let signal = ema_reseed_on_gap(&mass, period_signal);
+    let signal = ema_aligned(&mass, period_signal);
 
     (mass, signal)
 }
@@ -22,7 +22,7 @@ pub fn massi_signal(
     period_signal: usize,
 ) -> Vec<Option<f64>> {
     let mass = massi_line(highs, lows, period_ema, period_sum);
-    ema_reseed_on_gap(&mass, period_signal)
+    ema_aligned(&mass, period_signal)
 }
 
 pub fn massi_line(
@@ -141,7 +141,7 @@ mod tests {
     }
 
     #[test]
-    fn test_massi_signal_reseeds_after_sparse_gap() {
+    fn test_massi_signal_follows_base_ema_contract_across_gaps() {
         let highs = vec![
             Some(5.0),
             Some(6.0),
@@ -194,10 +194,11 @@ mod tests {
                 Some(2.0),
                 None,
                 None,
-                None,
+                Some(2.0),
                 Some(2.0),
                 Some(2.0),
             ]
         );
+        assert_eq!(signal, ema_aligned(&line, 2));
     }
 }

@@ -1,4 +1,4 @@
-use crate::indicators::ema::{ema_aligned, ema_reseed_on_gap};
+use crate::indicators::ema::ema_aligned;
 
 pub fn macd(
     data: &[Option<f64>],
@@ -7,7 +7,7 @@ pub fn macd(
     signal_period: usize,
 ) -> (Vec<Option<f64>>, Vec<Option<f64>>, Vec<Option<f64>>) {
     let macd_line = macd_line(data, fast_period, slow_period);
-    let signal_line = ema_reseed_on_gap(&macd_line, signal_period);
+    let signal_line = ema_aligned(&macd_line, signal_period);
     let histogram = macd_line
         .iter()
         .zip(signal_line.iter())
@@ -27,7 +27,7 @@ pub fn macd_histogram(
     signal_period: usize,
 ) -> Vec<Option<f64>> {
     let macd_line = macd_line(data, fast_period, slow_period);
-    let signal_line = ema_reseed_on_gap(&macd_line, signal_period);
+    let signal_line = ema_aligned(&macd_line, signal_period);
 
     macd_line
         .iter()
@@ -46,7 +46,7 @@ pub fn macd_signal(
     signal_period: usize,
 ) -> Vec<Option<f64>> {
     let macd_line = macd_line(data, fast_period, slow_period);
-    ema_reseed_on_gap(&macd_line, signal_period)
+    ema_aligned(&macd_line, signal_period)
 }
 
 pub fn macd_line(data: &[Option<f64>], fast_period: usize, slow_period: usize) -> Vec<Option<f64>> {
@@ -124,7 +124,7 @@ mod tests {
     }
 
     #[test]
-    fn test_macd_signal_reseeds_after_sparse_gap() {
+    fn test_macd_signal_follows_base_ema_contract_across_gaps() {
         let input = vec![
             Some(1.0),
             Some(2.0),
@@ -159,11 +159,12 @@ mod tests {
                 None,
                 Some(0.5),
                 None,
-                None,
+                Some(0.5),
                 Some(0.5),
                 Some(0.5),
             ]
         );
+        assert_eq!(signal, ema_aligned(&line, 2));
         assert_eq!(
             histogram,
             vec![
@@ -172,7 +173,7 @@ mod tests {
                 None,
                 Some(0.0),
                 None,
-                None,
+                Some(0.0),
                 Some(0.0),
                 Some(0.0),
             ]

@@ -1,4 +1,4 @@
-use crate::indicators::ema::{ema_aligned, ema_reseed_on_gap};
+use crate::indicators::ema::ema_aligned;
 
 pub fn pvo(
     data: &[Option<f64>],
@@ -7,7 +7,7 @@ pub fn pvo(
     signal_period: usize,
 ) -> (Vec<Option<f64>>, Vec<Option<f64>>, Vec<Option<f64>>) {
     let pvo_line = pvo_line(data, fast_period, slow_period);
-    let signal_line = ema_reseed_on_gap(&pvo_line, signal_period);
+    let signal_line = ema_aligned(&pvo_line, signal_period);
     let histogram = pvo_line
         .iter()
         .zip(signal_line.iter())
@@ -27,7 +27,7 @@ pub fn pvo_histogram(
     signal_period: usize,
 ) -> Vec<Option<f64>> {
     let pvo_line = pvo_line(data, fast_period, slow_period);
-    let signal_line = ema_reseed_on_gap(&pvo_line, signal_period);
+    let signal_line = ema_aligned(&pvo_line, signal_period);
     pvo_line
         .iter()
         .zip(signal_line.iter())
@@ -45,7 +45,7 @@ pub fn pvo_signal(
     signal_period: usize,
 ) -> Vec<Option<f64>> {
     let pvo_line = pvo_line(data, fast_period, slow_period);
-    ema_reseed_on_gap(&pvo_line, signal_period)
+    ema_aligned(&pvo_line, signal_period)
 }
 
 pub fn pvo_line(data: &[Option<f64>], fast_period: usize, slow_period: usize) -> Vec<Option<f64>> {
@@ -125,7 +125,7 @@ mod tests {
     }
 
     #[test]
-    fn test_pvo_signal_reseeds_after_sparse_gap() {
+    fn test_pvo_signal_follows_base_ema_contract_across_gaps() {
         let input = vec![
             Some(10.0),
             Some(11.0),
@@ -146,13 +146,41 @@ mod tests {
 
         assert!(signal[3].is_some());
         assert_eq!(signal[4], None);
-        assert_eq!(signal[5], None);
-        assert!((signal[6].unwrap() - ((line[5].unwrap() + line[6].unwrap()) / 2.0)).abs() < 1e-12);
-        assert!(signal[7].unwrap() < signal[6].unwrap());
+        assert_eq!(signal, ema_aligned(&line, 2));
+        assert_eq!(
+            round_vec(signal.clone(), 8),
+            round_vec(
+                vec![
+                    None,
+                    None,
+                    None,
+                    Some(4.356060606060606),
+                    None,
+                    Some(4.016122766122766),
+                    Some(3.7196599696599697),
+                    Some(3.4621088787755454),
+                ],
+                8,
+            )
+        );
 
         assert!(histogram[3].is_some());
         assert_eq!(histogram[4], None);
-        assert_eq!(histogram[5], None);
-        assert!(histogram[6].is_some());
+        assert_eq!(
+            round_vec(histogram, 8),
+            round_vec(
+                vec![
+                    None,
+                    None,
+                    None,
+                    Some(-0.189393939393939),
+                    None,
+                    Some(-0.16996891996891972),
+                    Some(-0.14823139823139803),
+                    Some(-0.12877554544221196),
+                ],
+                8,
+            )
+        );
     }
 }
