@@ -10,6 +10,10 @@ pub fn dmi(
     let mut plus_di = vec![None; len];
     let mut minus_di = vec![None; len];
 
+    if len == 0 || len != lows.len() || len != closes.len() || period == 0 {
+        return (plus_di, minus_di);
+    }
+
     let trs = calc_true_ranges_aligned(highs, lows, closes);
     let mut plus_dm = vec![None; len];
     let mut minus_dm = vec![None; len];
@@ -222,5 +226,17 @@ mod tests {
             vec![None, None, None, None, Some(50.0), Some(50.0),]
         );
         assert_eq!(minus_di, vec![None, None, None, None, Some(0.0), Some(0.0)]);
+    }
+
+    #[test]
+    fn test_dmi_length_mismatch_fails_closed() {
+        let highs = vec![Some(10.0), Some(12.0), Some(14.0)];
+        let lows = vec![Some(8.0), Some(9.0)];
+        let closes = vec![Some(9.0), Some(11.0), Some(13.0)];
+
+        let (plus_di, minus_di) = dmi(&highs, &lows, &closes, 2);
+
+        assert_eq!(plus_di, vec![None, None, None]);
+        assert_eq!(minus_di, vec![None, None, None]);
     }
 }

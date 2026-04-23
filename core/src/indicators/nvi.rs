@@ -1,4 +1,4 @@
-use crate::indicators::ema::ema_reseed_on_gap;
+use crate::indicators::ema::ema_aligned;
 
 pub fn nvi(
     closes: &[Option<f64>],
@@ -6,7 +6,7 @@ pub fn nvi(
     signal_period: usize,
 ) -> (Vec<Option<f64>>, Vec<Option<f64>>) {
     let nvi_line = nvi_line(closes, volumes);
-    let signal = ema_reseed_on_gap(&nvi_line, signal_period);
+    let signal = ema_aligned(&nvi_line, signal_period);
 
     (nvi_line, signal)
 }
@@ -17,7 +17,7 @@ pub fn nvi_signal(
     signal_period: usize,
 ) -> Vec<Option<f64>> {
     let nvi_line = nvi_line(closes, volumes);
-    ema_reseed_on_gap(&nvi_line, signal_period)
+    ema_aligned(&nvi_line, signal_period)
 }
 
 pub fn nvi_line(closes: &[Option<f64>], volumes: &[Option<f64>]) -> Vec<Option<f64>> {
@@ -120,7 +120,7 @@ mod tests {
     }
 
     #[test]
-    fn test_nvi_signal_reseeds_after_gap_in_line() {
+    fn test_nvi_signal_follows_base_ema_contract_across_gaps() {
         let closes = vec![
             Some(10.0),
             Some(12.0),
@@ -151,9 +151,13 @@ mod tests {
                 Some(1090.0),
             ]
         );
+        assert_eq!(signal, ema_aligned(&line, 2));
         assert_eq!(
-            signal,
-            vec![None, Some(1010.0), None, None, None, Some(1065.0)]
+            round_vec(signal, 8),
+            round_vec(
+                vec![None, Some(1010.0), None, None, Some(1030.0), Some(1070.0),],
+                8,
+            )
         );
     }
 }

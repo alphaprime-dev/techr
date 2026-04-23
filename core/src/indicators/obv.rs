@@ -1,4 +1,4 @@
-use crate::indicators::ema::ema_reseed_on_gap;
+use crate::indicators::ema::ema_aligned;
 
 pub fn obv(
     data: &[Option<f64>],
@@ -6,7 +6,7 @@ pub fn obv(
     signal_period: usize,
 ) -> (Vec<Option<f64>>, Vec<Option<f64>>) {
     let obv_line = obv_line(data, volumes);
-    let obv_signal = ema_reseed_on_gap(&obv_line, signal_period);
+    let obv_signal = ema_aligned(&obv_line, signal_period);
 
     (obv_line, obv_signal)
 }
@@ -17,7 +17,7 @@ pub fn obv_signal(
     signal_period: usize,
 ) -> Vec<Option<f64>> {
     let obv_line = obv_line(data, volumes);
-    ema_reseed_on_gap(&obv_line, signal_period)
+    ema_aligned(&obv_line, signal_period)
 }
 
 pub fn obv_line(data: &[Option<f64>], volumes: &[Option<f64>]) -> Vec<Option<f64>> {
@@ -123,7 +123,7 @@ mod tests {
     }
 
     #[test]
-    fn test_obv_signal_reseeds_after_gap_in_line() {
+    fn test_obv_signal_follows_base_ema_contract_across_gaps() {
         let closes = vec![
             Some(10.0),
             Some(11.0),
@@ -154,9 +154,20 @@ mod tests {
                 Some(140.0)
             ]
         );
+        assert_eq!(signal, ema_aligned(&line, 2));
         assert_eq!(
-            signal,
-            vec![None, Some(125.0), None, None, None, Some(135.0)]
+            round_vec(signal, 8),
+            round_vec(
+                vec![
+                    None,
+                    Some(125.0),
+                    None,
+                    None,
+                    Some(128.33333333333334),
+                    Some(136.11111111111111),
+                ],
+                8,
+            )
         );
     }
 }

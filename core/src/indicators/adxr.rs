@@ -120,4 +120,15 @@ mod tests {
             ]
         );
     }
+
+    #[test]
+    fn test_adxr_length_mismatch_fails_closed() {
+        let highs = vec![Some(10.0), Some(12.0), Some(14.0)];
+        let lows = vec![Some(8.0), Some(9.0)];
+        let closes = vec![Some(9.0), Some(11.0), Some(13.0)];
+
+        let result = adxr(&highs, &lows, &closes, 2, 2, 2);
+
+        assert_eq!(result, vec![None, None, None]);
+    }
 }
