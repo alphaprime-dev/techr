@@ -1,9 +1,9 @@
 use crate::indicators::aroon;
 
-pub fn aroonosc(highs: &[f64], lows: &[f64], period: usize) -> Vec<Option<f64>> {
+pub fn aroonosc(highs: &[Option<f64>], lows: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
     let mut aroonosc = vec![None; highs.len()];
 
-    if highs.len() < period {
+    if highs.len() != lows.len() || period == 0 || highs.len() < period + 1 {
         return aroonosc;
     }
 
@@ -28,8 +28,8 @@ mod tests {
     fn test_aroonosc() {
         let test_cases = vec!["005930", "TSLA"];
         for symbol in test_cases {
-            let highs = testutils::load_data(&format!("../data/{}.json", symbol), "h");
-            let lows = testutils::load_data(&format!("../data/{}.json", symbol), "l");
+            let highs = testutils::load_data_nullable(&format!("../data/{}.json", symbol), "h");
+            let lows = testutils::load_data_nullable(&format!("../data/{}.json", symbol), "l");
             let result = aroonosc(&highs, &lows, 25);
 
             let expected = testutils::load_expected::<Option<f64>>(&format!(

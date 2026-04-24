@@ -1,4 +1,9 @@
-pub fn cci(highs: &[f64], lows: &[f64], closes: &[f64], period: usize) -> Vec<Option<f64>> {
+pub fn cci(
+    highs: &[Option<f64>],
+    lows: &[Option<f64>],
+    closes: &[Option<f64>],
+    period: usize,
+) -> Vec<Option<f64>> {
     let len = highs.len();
     let mut result = vec![None; len];
 
@@ -6,23 +11,45 @@ pub fn cci(highs: &[f64], lows: &[f64], closes: &[f64], period: usize) -> Vec<Op
         return result;
     }
 
-    let typical_prices: Vec<f64> = highs
+    let typical_prices: Vec<Option<f64>> = highs
         .iter()
         .zip(lows.iter())
         .zip(closes.iter())
-        .map(|((h, l), c)| (h + l + c) / 3.0)
+        .map(|((&high, &low), &close)| match (high, low, close) {
+            (Some(high), Some(low), Some(close)) => Some((high + low + close) / 3.0),
+            _ => None,
+        })
         .collect();
 
     for i in period - 1..len {
-        let slice = &typical_prices[i + 1 - period..=i];
-        let sma_tp: f64 = slice.iter().sum::<f64>() / period as f64;
-        let mean_deviation = slice.iter().map(|&x| (x - sma_tp).abs()).sum::<f64>() / period as f64;
+        let mut window = Vec::with_capacity(period);
+        let mut valid = true;
+        for value in &typical_prices[i + 1 - period..=i] {
+            if let Some(value) = value {
+                window.push(*value);
+            } else {
+                valid = false;
+                break;
+            }
+        }
 
-        result[i] = if mean_deviation == 0.0 {
-            None
-        } else {
-            Some((typical_prices[i] - sma_tp) / (0.015 * mean_deviation))
-        };
+        if !valid {
+            continue;
+        }
+
+        let sma_tp = window.iter().sum::<f64>() / period as f64;
+        let mean_deviation = window
+            .iter()
+            .map(|&value| (value - sma_tp).abs())
+            .sum::<f64>()
+            / period as f64;
+
+        if mean_deviation != 0.0 {
+            let current_tp = *window
+                .last()
+                .expect("validated CCI window must include the current typical price");
+            result[i] = Some((current_tp - sma_tp) / (0.015 * mean_deviation));
+        }
     }
 
     result
@@ -38,9 +65,9 @@ mod tests {
     fn test_cci() {
         let test_cases = vec!["005930", "TSLA"];
         for symbol in test_cases {
-            let high = testutils::load_data(&format!("../data/{}.json", symbol), "h");
-            let low = testutils::load_data(&format!("../data/{}.json", symbol), "l");
-            let close = testutils::load_data(&format!("../data/{}.json", symbol), "c");
+            let high = testutils::load_data_nullable(&format!("../data/{}.json", symbol), "h");
+            let low = testutils::load_data_nullable(&format!("../data/{}.json", symbol), "l");
+            let close = testutils::load_data_nullable(&format!("../data/{}.json", symbol), "c");
             let result = cci(&high, &low, &close, 20);
             let expected = testutils::load_expected::<Option<f64>>(&format!(
                 "../data/expected/cci_{}.json",
@@ -54,5 +81,28 @@ mod tests {
                 symbol
             );
         }
+    }
+
+    #[test]
+    fn test_cci_gap_invalidates_full_typical_price_window() {
+        let highs = vec![Some(4.0), Some(6.0), None, Some(10.0), Some(12.0)];
+        let lows = vec![Some(2.0), Some(2.0), None, Some(6.0), Some(8.0)];
+        let closes = vec![Some(3.0), Some(4.0), None, Some(9.0), Some(11.0)];
+
+        let result = round_vec(cci(&highs, &lows, &closes, 2), 8);
+
+        assert_eq!(
+            result,
+            round_vec(
+                vec![
+                    None,
+                    Some(66.66666666666667),
+                    None,
+                    None,
+                    Some(66.66666666666667)
+                ],
+                8
+            )
+        );
     }
 }

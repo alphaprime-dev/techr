@@ -1,15 +1,15 @@
-pub fn roc(closes: &[f64], period: usize) -> Vec<Option<f64>> {
+pub fn roc(closes: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
     let len = closes.len();
     let mut result = vec![None; len];
 
-    if len < period + 1 {
+    if period == 0 || len < period + 1 {
         return result;
     }
 
     for i in period..len {
-        let curr_close = closes[i];
-        let prev_close = closes[i - period];
-        result[i] = Some(((curr_close - prev_close) / prev_close) * 100.0);
+        if let (Some(current), Some(previous)) = (closes[i], closes[i - period]) {
+            result[i] = Some(((current - previous) / previous) * 100.0);
+        }
     }
 
     result
@@ -25,7 +25,7 @@ mod tests {
     fn test_roc() {
         let test_cases = vec!["005930", "TSLA"];
         for symbol in test_cases {
-            let close = testutils::load_data(&format!("../data/{}.json", symbol), "c");
+            let close = testutils::load_data_nullable(&format!("../data/{}.json", symbol), "c");
             let result = roc(&close, 20);
             let expected = testutils::load_expected::<Option<f64>>(&format!(
                 "../data/expected/roc_{}.json",
@@ -39,5 +39,17 @@ mod tests {
                 symbol
             );
         }
+    }
+
+    #[test]
+    fn test_roc_gap_invalidates_until_lagged_value_returns() {
+        let closes = vec![Some(2.0), Some(4.0), None, Some(10.0), Some(15.0)];
+
+        let result = round_vec(roc(&closes, 2), 8);
+
+        assert_eq!(
+            result,
+            round_vec(vec![None, None, None, Some(150.0), None], 8)
+        );
     }
 }

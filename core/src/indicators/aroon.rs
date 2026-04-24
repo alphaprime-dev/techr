@@ -1,10 +1,14 @@
 use crate::utils::rolling_argmax_argmin;
 
-pub fn aroon(highs: &[f64], lows: &[f64], period: usize) -> (Vec<Option<f64>>, Vec<Option<f64>>) {
+pub fn aroon(
+    highs: &[Option<f64>],
+    lows: &[Option<f64>],
+    period: usize,
+) -> (Vec<Option<f64>>, Vec<Option<f64>>) {
     let mut aroon_up = vec![None; highs.len()];
     let mut aroon_down = vec![None; lows.len()];
 
-    if highs.len() < period {
+    if highs.len() != lows.len() || period == 0 || highs.len() < period + 1 {
         return (aroon_up, aroon_down);
     }
 
@@ -39,8 +43,8 @@ mod tests {
     fn test_aroon() {
         let test_cases = vec!["005930", "TSLA"];
         for symbol in test_cases {
-            let highs = testutils::load_data(&format!("../data/{}.json", symbol), "h");
-            let lows = testutils::load_data(&format!("../data/{}.json", symbol), "l");
+            let highs = testutils::load_data_nullable(&format!("../data/{}.json", symbol), "h");
+            let lows = testutils::load_data_nullable(&format!("../data/{}.json", symbol), "l");
             let (aroon_up, aroon_down) = aroon(&highs, &lows, 25);
 
             let expected_up = testutils::load_expected::<Option<f64>>(&format!(
@@ -65,5 +69,16 @@ mod tests {
                 symbol
             );
         }
+    }
+
+    #[test]
+    fn test_aroon_gap_invalidates_full_extrema_window() {
+        let highs = vec![Some(1.0), Some(5.0), None, Some(4.0), Some(3.0), Some(6.0)];
+        let lows = vec![Some(6.0), Some(2.0), None, Some(3.0), Some(1.0), Some(2.0)];
+
+        let (up, down) = aroon(&highs, &lows, 2);
+
+        assert_eq!(up, vec![None, None, None, None, None, Some(100.0)]);
+        assert_eq!(down, vec![None, None, None, None, None, Some(50.0)]);
     }
 }
