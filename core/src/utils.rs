@@ -16,23 +16,6 @@ pub fn round_vec(vec: Vec<Option<f64>>, decimal_places: u32) -> Vec<Option<f64>>
         .collect()
 }
 
-#[cfg(test)]
-fn calc_mean(data: &[f64]) -> f64 {
-    let sum: f64 = data.iter().sum();
-    let count = data.len();
-    sum / count as f64
-}
-
-#[cfg(test)]
-fn find_max(data: &[f64]) -> f64 {
-    data.iter().cloned().fold(f64::NEG_INFINITY, f64::max)
-}
-
-#[cfg(test)]
-fn find_min(data: &[f64]) -> f64 {
-    data.iter().cloned().fold(f64::INFINITY, f64::min)
-}
-
 /// Computes rolling max/min values over paired aligned nullable slices.
 ///
 /// A window only emits values when both input slices contain a full valid window.
@@ -374,20 +357,6 @@ pub fn calc_clv(high: f64, low: f64, close: f64) -> f64 {
     }
 }
 
-#[cfg(test)]
-fn calc_true_ranges(highs: &[f64], lows: &[f64], closes: &[f64]) -> Vec<f64> {
-    let mut result = Vec::with_capacity(highs.len() - 1);
-
-    for i in 1..highs.len() {
-        let high = highs[i];
-        let low = lows[i];
-        let prev_close = closes[i - 1];
-        result.push(calc_tr(high, low, prev_close));
-    }
-
-    result
-}
-
 pub fn calc_true_ranges_aligned(
     highs: &[Option<f64>],
     lows: &[Option<f64>],
@@ -417,19 +386,6 @@ fn calc_tr(high: f64, low: f64, prev_close: f64) -> f64 {
     let th = high.max(prev_close);
     let tl = low.min(prev_close);
     th - tl
-}
-
-#[cfg(test)]
-fn wilders_smoothing(data: &[f64], period: usize) -> Vec<f64> {
-    let mut result = Vec::with_capacity(data.len() - period + 1);
-    let mut partial_sum: f64 = data.iter().take(period - 1).sum();
-
-    for i in period - 1..data.len() {
-        partial_sum = partial_sum - (partial_sum / period as f64) + data[i];
-        result.push(partial_sum);
-    }
-
-    result
 }
 
 pub fn wilders_smoothing_aligned(data: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
@@ -526,19 +482,24 @@ mod tests {
 
     #[test]
     fn test_calc_mean() {
-        let result = calc_mean(&vec![1.0, 2.0, 3.0, 4.0, 5.0]);
+        let data = [1.0, 2.0, 3.0, 4.0, 5.0];
+        let result = data.iter().sum::<f64>() / data.len() as f64;
         assert_eq!(result, 3.0);
     }
 
     #[test]
     fn test_find_max() {
-        let result = find_max(&vec![1.0, 2.0, 3.0, 4.0, 5.0]);
+        let result = [1.0, 2.0, 3.0, 4.0, 5.0]
+            .into_iter()
+            .fold(f64::NEG_INFINITY, f64::max);
         assert_eq!(result, 5.0);
     }
 
     #[test]
     fn test_find_min() {
-        let result = find_min(&vec![1.0, 2.0, 3.0, 4.0, 5.0]);
+        let result = [1.0, 2.0, 3.0, 4.0, 5.0]
+            .into_iter()
+            .fold(f64::INFINITY, f64::min);
         assert_eq!(result, 1.0);
     }
 
@@ -695,7 +656,9 @@ mod tests {
             2.0, 1.5, 1.5,
         ];
 
-        let result = calc_true_ranges(&highs, &lows, &closes);
+        let result = (1..highs.len())
+            .map(|i| calc_tr(highs[i], lows[i], closes[i - 1]))
+            .collect::<Vec<_>>();
         assert_eq!(result, expected, "Failed for dynamic input");
     }
 
@@ -726,7 +689,12 @@ mod tests {
         // Using extended data for a more robust test case.
         let data = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0];
         let period = 3;
-        let result = wilders_smoothing(&data, period);
+        let mut result = Vec::with_capacity(data.len() - period + 1);
+        let mut partial_sum: f64 = data.iter().take(period - 1).sum();
+        for i in period - 1..data.len() {
+            partial_sum = partial_sum - (partial_sum / period as f64) + data[i];
+            result.push(partial_sum);
+        }
 
         let expected = vec![
             Some(5.0),
