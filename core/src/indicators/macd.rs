@@ -1,4 +1,4 @@
-use crate::indicators::ema::ema_aligned;
+use crate::indicators::ema::ema;
 
 pub fn macd(
     data: &[Option<f64>],
@@ -7,7 +7,7 @@ pub fn macd(
     signal_period: usize,
 ) -> (Vec<Option<f64>>, Vec<Option<f64>>, Vec<Option<f64>>) {
     let macd_line = macd_line(data, fast_period, slow_period);
-    let signal_line = ema_aligned(&macd_line, signal_period);
+    let signal_line = ema(&macd_line, signal_period);
     let histogram = macd_line
         .iter()
         .zip(signal_line.iter())
@@ -27,7 +27,7 @@ pub fn macd_histogram(
     signal_period: usize,
 ) -> Vec<Option<f64>> {
     let macd_line = macd_line(data, fast_period, slow_period);
-    let signal_line = ema_aligned(&macd_line, signal_period);
+    let signal_line = ema(&macd_line, signal_period);
 
     macd_line
         .iter()
@@ -46,7 +46,7 @@ pub fn macd_signal(
     signal_period: usize,
 ) -> Vec<Option<f64>> {
     let macd_line = macd_line(data, fast_period, slow_period);
-    ema_aligned(&macd_line, signal_period)
+    ema(&macd_line, signal_period)
 }
 
 pub fn macd_line(data: &[Option<f64>], fast_period: usize, slow_period: usize) -> Vec<Option<f64>> {
@@ -56,8 +56,8 @@ pub fn macd_line(data: &[Option<f64>], fast_period: usize, slow_period: usize) -
         return macd_line;
     }
 
-    let fast_ema = ema_aligned(data, fast_period);
-    let slow_ema = ema_aligned(data, slow_period);
+    let fast_ema = ema(data, fast_period);
+    let slow_ema = ema(data, slow_period);
 
     for i in (slow_period - 1)..data.len() {
         if let (Some(fast), Some(slow)) = (fast_ema[i], slow_ema[i]) {
@@ -164,7 +164,7 @@ mod tests {
                 Some(0.5),
             ]
         );
-        assert_eq!(signal, ema_aligned(&line, 2));
+        assert_eq!(signal, ema(&line, 2));
         assert_eq!(
             histogram,
             vec![

@@ -1,4 +1,4 @@
-use crate::indicators::ema::ema_aligned;
+use crate::indicators::ema::ema;
 
 pub fn nvi(
     closes: &[Option<f64>],
@@ -6,7 +6,7 @@ pub fn nvi(
     signal_period: usize,
 ) -> (Vec<Option<f64>>, Vec<Option<f64>>) {
     let nvi_line = nvi_line(closes, volumes);
-    let signal = ema_aligned(&nvi_line, signal_period);
+    let signal = ema(&nvi_line, signal_period);
 
     (nvi_line, signal)
 }
@@ -17,7 +17,7 @@ pub fn nvi_signal(
     signal_period: usize,
 ) -> Vec<Option<f64>> {
     let nvi_line = nvi_line(closes, volumes);
-    ema_aligned(&nvi_line, signal_period)
+    ema(&nvi_line, signal_period)
 }
 
 pub fn nvi_line(closes: &[Option<f64>], volumes: &[Option<f64>]) -> Vec<Option<f64>> {
@@ -151,7 +151,7 @@ mod tests {
                 Some(1090.0),
             ]
         );
-        assert_eq!(signal, ema_aligned(&line, 2));
+        assert_eq!(signal, ema(&line, 2));
         assert_eq!(
             round_vec(signal, 8),
             round_vec(

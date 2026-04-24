@@ -1,4 +1,4 @@
-use crate::indicators::ema::ema_aligned;
+use crate::indicators::ema::ema;
 
 pub fn obv(
     data: &[Option<f64>],
@@ -6,7 +6,7 @@ pub fn obv(
     signal_period: usize,
 ) -> (Vec<Option<f64>>, Vec<Option<f64>>) {
     let obv_line = obv_line(data, volumes);
-    let obv_signal = ema_aligned(&obv_line, signal_period);
+    let obv_signal = ema(&obv_line, signal_period);
 
     (obv_line, obv_signal)
 }
@@ -17,7 +17,7 @@ pub fn obv_signal(
     signal_period: usize,
 ) -> Vec<Option<f64>> {
     let obv_line = obv_line(data, volumes);
-    ema_aligned(&obv_line, signal_period)
+    ema(&obv_line, signal_period)
 }
 
 pub fn obv_line(data: &[Option<f64>], volumes: &[Option<f64>]) -> Vec<Option<f64>> {
@@ -154,7 +154,7 @@ mod tests {
                 Some(140.0)
             ]
         );
-        assert_eq!(signal, ema_aligned(&line, 2));
+        assert_eq!(signal, ema(&line, 2));
         assert_eq!(
             round_vec(signal, 8),
             round_vec(

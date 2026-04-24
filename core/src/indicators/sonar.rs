@@ -1,4 +1,4 @@
-use crate::indicators::ema::ema_aligned;
+use crate::indicators::ema::ema;
 
 pub fn sonar(
     data: &[Option<f64>],
@@ -7,7 +7,7 @@ pub fn sonar(
     signal_period: usize,
 ) -> (Vec<Option<f64>>, Vec<Option<f64>>) {
     let sonar_line = sonar_line(data, period, step);
-    let signal_line = ema_aligned(&sonar_line, signal_period);
+    let signal_line = ema(&sonar_line, signal_period);
 
     (sonar_line, signal_line)
 }
@@ -19,7 +19,7 @@ pub fn sonar_signal(
     signal_period: usize,
 ) -> Vec<Option<f64>> {
     let sonar_line = sonar_line(data, period, step);
-    ema_aligned(&sonar_line, signal_period)
+    ema(&sonar_line, signal_period)
 }
 
 pub fn sonar_line(data: &[Option<f64>], period: usize, step: usize) -> Vec<Option<f64>> {
@@ -29,7 +29,7 @@ pub fn sonar_line(data: &[Option<f64>], period: usize, step: usize) -> Vec<Optio
         return sonar_line;
     }
 
-    let ema_values = ema_aligned(data, period);
+    let ema_values = ema(data, period);
 
     for i in (period + step - 1)..data.len() {
         if let (Some(current_ema), Some(previous_ema)) = (ema_values[i], ema_values[i - step]) {
@@ -146,6 +146,6 @@ mod tests {
                 Some(1.0),
             ]
         );
-        assert_eq!(signal, ema_aligned(&line, 2));
+        assert_eq!(signal, ema(&line, 2));
     }
 }

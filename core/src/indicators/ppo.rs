@@ -1,4 +1,4 @@
-use crate::indicators::ema::ema_aligned;
+use crate::indicators::ema::ema;
 
 pub fn ppo(
     data: &[Option<f64>],
@@ -7,7 +7,7 @@ pub fn ppo(
     signal_period: usize,
 ) -> (Vec<Option<f64>>, Vec<Option<f64>>, Vec<Option<f64>>) {
     let ppo_line = ppo_line(data, fast_period, slow_period);
-    let signal_line = ema_aligned(&ppo_line, signal_period);
+    let signal_line = ema(&ppo_line, signal_period);
     let histogram = ppo_line
         .iter()
         .zip(signal_line.iter())
@@ -27,7 +27,7 @@ pub fn ppo_histogram(
     signal_period: usize,
 ) -> Vec<Option<f64>> {
     let ppo_line = ppo_line(data, fast_period, slow_period);
-    let signal_line = ema_aligned(&ppo_line, signal_period);
+    let signal_line = ema(&ppo_line, signal_period);
     ppo_line
         .iter()
         .zip(signal_line.iter())
@@ -45,7 +45,7 @@ pub fn ppo_signal(
     signal_period: usize,
 ) -> Vec<Option<f64>> {
     let ppo_line = ppo_line(data, fast_period, slow_period);
-    ema_aligned(&ppo_line, signal_period)
+    ema(&ppo_line, signal_period)
 }
 
 pub fn ppo_line(data: &[Option<f64>], fast_period: usize, slow_period: usize) -> Vec<Option<f64>> {
@@ -55,8 +55,8 @@ pub fn ppo_line(data: &[Option<f64>], fast_period: usize, slow_period: usize) ->
         return ppo_line;
     }
 
-    let fast_ema = ema_aligned(data, fast_period);
-    let slow_ema = ema_aligned(data, slow_period);
+    let fast_ema = ema(data, fast_period);
+    let slow_ema = ema(data, slow_period);
 
     for i in (slow_period - 1)..data.len() {
         if let (Some(fast), Some(slow)) = (fast_ema[i], slow_ema[i]) {
@@ -146,7 +146,7 @@ mod tests {
 
         assert!(signal[3].is_some());
         assert_eq!(signal[4], None);
-        assert_eq!(signal, ema_aligned(&line, 2));
+        assert_eq!(signal, ema(&line, 2));
         assert_eq!(
             round_vec(signal.clone(), 8),
             round_vec(

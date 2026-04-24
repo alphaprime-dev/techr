@@ -1,4 +1,4 @@
-use crate::indicators::ema::ema_aligned;
+use crate::indicators::ema::ema;
 use crate::utils::rolling_sum_strict;
 
 pub fn massi(
@@ -9,7 +9,7 @@ pub fn massi(
     period_signal: usize,
 ) -> (Vec<Option<f64>>, Vec<Option<f64>>) {
     let mass = massi_line(highs, lows, period_ema, period_sum);
-    let signal = ema_aligned(&mass, period_signal);
+    let signal = ema(&mass, period_signal);
 
     (mass, signal)
 }
@@ -22,7 +22,7 @@ pub fn massi_signal(
     period_signal: usize,
 ) -> Vec<Option<f64>> {
     let mass = massi_line(highs, lows, period_ema, period_sum);
-    ema_aligned(&mass, period_signal)
+    ema(&mass, period_signal)
 }
 
 pub fn massi_line(
@@ -50,8 +50,8 @@ pub fn massi_line(
             _ => None,
         })
         .collect::<Vec<_>>();
-    let s_ema = ema_aligned(&high_low_diffs, period_ema);
-    let d_ema = ema_aligned(&s_ema, period_ema);
+    let s_ema = ema(&high_low_diffs, period_ema);
+    let d_ema = ema(&s_ema, period_ema);
     let ema_ratio = s_ema
         .iter()
         .zip(d_ema.iter())
@@ -199,6 +199,6 @@ mod tests {
                 Some(2.0),
             ]
         );
-        assert_eq!(signal, ema_aligned(&line, 2));
+        assert_eq!(signal, ema(&line, 2));
     }
 }
