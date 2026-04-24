@@ -16,17 +16,20 @@ pub fn round_vec(vec: Vec<Option<f64>>, decimal_places: u32) -> Vec<Option<f64>>
         .collect()
 }
 
-pub fn calc_mean(data: &[f64]) -> f64 {
+#[cfg(test)]
+fn calc_mean(data: &[f64]) -> f64 {
     let sum: f64 = data.iter().sum();
     let count = data.len();
     sum / count as f64
 }
 
-pub fn find_max(data: &[f64]) -> f64 {
+#[cfg(test)]
+fn find_max(data: &[f64]) -> f64 {
     data.iter().cloned().fold(f64::NEG_INFINITY, f64::max)
 }
 
-pub fn find_min(data: &[f64]) -> f64 {
+#[cfg(test)]
+fn find_min(data: &[f64]) -> f64 {
     data.iter().cloned().fold(f64::INFINITY, f64::min)
 }
 
@@ -371,7 +374,8 @@ pub fn calc_clv(high: f64, low: f64, close: f64) -> f64 {
     }
 }
 
-pub fn calc_true_ranges(highs: &[f64], lows: &[f64], closes: &[f64]) -> Vec<f64> {
+#[cfg(test)]
+fn calc_true_ranges(highs: &[f64], lows: &[f64], closes: &[f64]) -> Vec<f64> {
     let mut result = Vec::with_capacity(highs.len() - 1);
 
     for i in 1..highs.len() {
@@ -415,7 +419,8 @@ fn calc_tr(high: f64, low: f64, prev_close: f64) -> f64 {
     th - tl
 }
 
-pub fn wilders_smoothing(data: &[f64], period: usize) -> Vec<f64> {
+#[cfg(test)]
+fn wilders_smoothing(data: &[f64], period: usize) -> Vec<f64> {
     let mut result = Vec::with_capacity(data.len() - period + 1);
     let mut partial_sum: f64 = data.iter().take(period - 1).sum();
 
