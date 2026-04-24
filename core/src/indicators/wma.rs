@@ -1,11 +1,7 @@
 use crate::utils::rolling_weighted_mean_strict;
 
-fn wma_impl(data: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
-    rolling_weighted_mean_strict(data, period)
-}
-
 pub fn wma(data: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
-    wma_impl(data, period)
+    rolling_weighted_mean_strict(data, period)
 }
 
 #[cfg(test)]

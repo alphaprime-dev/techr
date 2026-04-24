@@ -1,4 +1,14 @@
-fn ema_impl(data: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
+pub(crate) fn ema_dense(data: &[f64], period: usize) -> Vec<Option<f64>> {
+    let nullable = data.iter().copied().map(Some).collect::<Vec<_>>();
+    ema(&nullable, period)
+}
+
+/// Computes an exponential moving average over an aligned nullable series.
+///
+/// The returned vector keeps the same length as the input and emits `None`
+/// until the first contiguous run of `period` valid observations has been
+/// observed. Once seeded, gaps emit `None` without resetting the EMA state.
+pub fn ema(data: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
     let mut result = vec![None; data.len()];
 
     if data.len() < period || period == 0 {
@@ -36,20 +46,6 @@ fn ema_impl(data: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
     }
 
     result
-}
-
-pub(crate) fn ema_dense(data: &[f64], period: usize) -> Vec<Option<f64>> {
-    let nullable = data.iter().copied().map(Some).collect::<Vec<_>>();
-    ema_impl(&nullable, period)
-}
-
-/// Computes an exponential moving average over an aligned nullable series.
-///
-/// The returned vector keeps the same length as the input and emits `None`
-/// until the first contiguous run of `period` valid observations has been
-/// observed. Once seeded, gaps emit `None` without resetting the EMA state.
-pub fn ema(data: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
-    ema_impl(data, period)
 }
 
 pub(crate) use ema as ema_aligned;

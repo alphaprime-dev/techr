@@ -121,7 +121,8 @@ pub fn rolling_midpoint(highs: &[f64], lows: &[f64], period: usize) -> Vec<Optio
         .collect()
 }
 
-fn rolling_mean_strict_impl(data: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
+/// Computes a rolling mean that only emits a value when the full window contains valid values.
+pub fn rolling_mean_strict(data: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
     let len = data.len();
     let mut means = vec![None; len];
 
@@ -153,13 +154,8 @@ fn rolling_mean_strict_impl(data: &[Option<f64>], period: usize) -> Vec<Option<f
     means
 }
 
-/// Computes a rolling mean that only emits a value when the full window contains valid values.
-pub fn rolling_mean_strict(data: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
-    rolling_mean_strict_impl(data, period)
-}
-
 /// Computes a rolling weighted mean that only emits a value when the full window is valid.
-fn rolling_weighted_mean_strict_impl(data: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
+pub fn rolling_weighted_mean_strict(data: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
     let len = data.len();
     let mut result = vec![None; len];
 
@@ -206,13 +202,8 @@ fn rolling_weighted_mean_strict_impl(data: &[Option<f64>], period: usize) -> Vec
     result
 }
 
-/// Computes a rolling weighted mean that only emits a value when the full window is valid.
-pub fn rolling_weighted_mean_strict(data: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
-    rolling_weighted_mean_strict_impl(data, period)
-}
-
 /// Computes rolling mean and standard deviation for fully valid windows only.
-fn rolling_mean_stddev_strict_impl(
+pub fn rolling_mean_stddev_strict(
     data: &[Option<f64>],
     period: usize,
 ) -> (Vec<Option<f64>>, Vec<Option<f64>>) {
@@ -252,14 +243,6 @@ fn rolling_mean_stddev_strict_impl(
     }
 
     (means, stddevs)
-}
-
-/// Computes rolling mean and standard deviation for fully valid windows only.
-pub fn rolling_mean_stddev_strict(
-    data: &[Option<f64>],
-    period: usize,
-) -> (Vec<Option<f64>>, Vec<Option<f64>>) {
-    rolling_mean_stddev_strict_impl(data, period)
 }
 
 fn push_max_index(deque: &mut VecDeque<usize>, data: &[f64], idx: usize) {

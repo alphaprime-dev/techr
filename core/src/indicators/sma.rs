@@ -1,12 +1,8 @@
 use crate::utils::rolling_mean_strict;
 
-fn sma_impl(data: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
-    rolling_mean_strict(data, period)
-}
-
 pub(crate) fn sma_dense(data: &[f64], period: usize) -> Vec<Option<f64>> {
     let nullable = data.iter().copied().map(Some).collect::<Vec<_>>();
-    sma_impl(&nullable, period)
+    rolling_mean_strict(&nullable, period)
 }
 
 /// Computes a simple moving average over an aligned nullable series.
@@ -14,7 +10,7 @@ pub(crate) fn sma_dense(data: &[f64], period: usize) -> Vec<Option<f64>> {
 /// The returned vector keeps the same length as the input and emits `None`
 /// until the first full `period` window has been observed.
 pub fn sma(data: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
-    sma_impl(data, period)
+    rolling_mean_strict(data, period)
 }
 
 pub(crate) use sma as sma_aligned;
