@@ -1,17 +1,17 @@
-use crate::indicators::ema::ema_dense;
+use crate::indicators::ema::ema;
 
-pub fn erbull(highs: &[f64], closes: &[f64], period: usize) -> Vec<Option<f64>> {
+pub fn erbull(highs: &[Option<f64>], closes: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
     let mut erbull = vec![None; highs.len()];
 
-    if highs.len() < period {
+    if highs.len() != closes.len() || highs.len() < period || period == 0 {
         return erbull;
     }
 
-    let ema_values = ema_dense(closes, period);
+    let ema_values = ema(closes, period);
 
     for i in (period - 1)..highs.len() {
-        if let Some(ema_value) = ema_values[i] {
-            let bull_power = highs[i] - ema_value;
+        if let (Some(high), Some(ema_value)) = (highs[i], ema_values[i]) {
+            let bull_power = high - ema_value;
             erbull[i] = Some(bull_power);
         }
     }
@@ -29,8 +29,8 @@ mod tests {
     fn test_erbull() {
         let test_cases = vec!["005930", "TSLA"];
         for symbol in test_cases {
-            let highs = testutils::load_data(&format!("../data/{}.json", symbol), "h");
-            let closes = testutils::load_data(&format!("../data/{}.json", symbol), "c");
+            let highs = testutils::load_data_nullable(&format!("../data/{}.json", symbol), "h");
+            let closes = testutils::load_data_nullable(&format!("../data/{}.json", symbol), "c");
             let result = erbull(&highs, &closes, 13);
             let expected = testutils::load_expected::<Option<f64>>(&format!(
                 "../data/expected/erbull_{}.json",
@@ -44,5 +44,27 @@ mod tests {
                 symbol
             );
         }
+    }
+
+    #[test]
+    fn test_erbull_gap_propagates_high_nulls_and_resumes_ema_state() {
+        let highs = vec![Some(3.0), Some(4.0), None, Some(6.0), Some(7.0)];
+        let closes = vec![Some(1.0), Some(2.0), None, Some(4.0), Some(5.0)];
+
+        let result = round_vec(erbull(&highs, &closes, 2), 8);
+
+        assert_eq!(
+            result,
+            round_vec(
+                vec![
+                    None,
+                    Some(2.5),
+                    None,
+                    Some(2.8333333333333335),
+                    Some(2.6111111111111116),
+                ],
+                8
+            )
+        );
     }
 }
