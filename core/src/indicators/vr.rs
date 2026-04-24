@@ -1,5 +1,3 @@
-use crate::utils::rolling_sum_strict;
-
 /// Volume Ratio (VR)
 pub fn vr(closes: &[Option<f64>], volumes: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
     let len = closes.len();
@@ -9,40 +7,49 @@ pub fn vr(closes: &[Option<f64>], volumes: &[Option<f64>], period: usize) -> Vec
         return result;
     }
 
-    let mut up = vec![None; len];
-    let mut down = vec![None; len];
-    let mut same = vec![None; len];
+    let mut up_values = vec![0.0; len];
+    let mut down_values = vec![0.0; len];
+    let mut same_values = vec![0.0; len];
+    let mut valid = vec![false; len];
+    let mut up_sum = 0.0;
+    let mut down_sum = 0.0;
+    let mut same_sum = 0.0;
+    let mut valid_count = 0usize;
 
     for i in 1..len {
         let (Some(close), Some(prev_close), Some(volume)) = (closes[i], closes[i - 1], volumes[i])
         else {
+            if i >= period {
+                up_sum -= up_values[i - period];
+                down_sum -= down_values[i - period];
+                same_sum -= same_values[i - period];
+                valid_count -= valid[i - period] as usize;
+            }
             continue;
         };
 
         if close > prev_close {
-            up[i] = Some(volume);
-            down[i] = Some(0.0);
-            same[i] = Some(0.0);
+            up_values[i] = volume;
         } else if close < prev_close {
-            up[i] = Some(0.0);
-            down[i] = Some(volume);
-            same[i] = Some(0.0);
+            down_values[i] = volume;
         } else {
-            up[i] = Some(0.0);
-            down[i] = Some(0.0);
-            same[i] = Some(volume);
+            same_values[i] = volume;
         }
-    }
+        valid[i] = true;
+        up_sum += up_values[i];
+        down_sum += down_values[i];
+        same_sum += same_values[i];
+        valid_count += 1;
 
-    let up_sum = rolling_sum_strict(&up, period);
-    let down_sum = rolling_sum_strict(&down, period);
-    let same_sum = rolling_sum_strict(&same, period);
+        if i >= period {
+            up_sum -= up_values[i - period];
+            down_sum -= down_values[i - period];
+            same_sum -= same_values[i - period];
+            valid_count -= valid[i - period] as usize;
+        }
 
-    for i in 0..len {
-        if let (Some(up_volume), Some(down_volume), Some(same_volume)) =
-            (up_sum[i], down_sum[i], same_sum[i])
-        {
-            result[i] = Some(calculate_vr(up_volume, down_volume, same_volume));
+        if valid_count == period {
+            result[i] = Some(calculate_vr(up_sum, down_sum, same_sum));
         }
     }
 

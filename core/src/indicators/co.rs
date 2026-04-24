@@ -1,4 +1,4 @@
-use crate::indicators::ad;
+use crate::utils::calc_clv;
 
 pub fn co(
     highs: &[Option<f64>],
@@ -25,22 +25,30 @@ pub fn co(
     }
 
     if period_long == period_short {
-        return ad(highs, lows, closes, volumes)
-            .into_iter()
-            .map(|value| value.map(|_| 0.0))
-            .collect();
+        for i in 0..len {
+            if highs[i].is_some()
+                && lows[i].is_some()
+                && closes[i].is_some()
+                && volumes[i].is_some()
+            {
+                co[i] = Some(0.0);
+            }
+        }
+        return co;
     }
 
-    let ad_values = ad(highs, lows, closes, volumes);
     let short_k = 2.0 / (period_short as f64 + 1.0);
     let long_k = 2.0 / (period_long as f64 + 1.0);
     let mut short_ema = None;
     let mut long_ema = None;
     let mut seeded_rows = 0usize;
     let mut output_seeded = false;
+    let mut ad_point = 0.0;
 
     for i in 0..len {
-        let Some(ad) = ad_values[i] else {
+        let (Some(high), Some(low), Some(close), Some(volume)) =
+            (highs[i], lows[i], closes[i], volumes[i])
+        else {
             if !output_seeded {
                 short_ema = None;
                 long_ema = None;
@@ -49,6 +57,8 @@ pub fn co(
             continue;
         };
 
+        ad_point += calc_clv(high, low, close) * volume;
+        let ad = ad_point;
         let next_short = short_ema.map_or(ad, |prev| ad * short_k + prev * (1.0 - short_k));
         let next_long = long_ema.map_or(ad, |prev| ad * long_k + prev * (1.0 - long_k));
         short_ema = Some(next_short);

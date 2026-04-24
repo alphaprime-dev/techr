@@ -1,5 +1,3 @@
-use crate::utils::rolling_sum_strict;
-
 pub fn ultosc(
     highs: &[Option<f64>],
     lows: &[Option<f64>],
@@ -15,39 +13,84 @@ pub fn ultosc(
         return ultosc;
     }
 
-    let buying_pressures = calc_buying_pressures(closes, lows);
-    let true_ranges = calc_true_ranges(closes, highs, lows);
-    let short_bp = rolling_sum_strict(&buying_pressures, period_short);
-    let medium_bp = rolling_sum_strict(&buying_pressures, period_medium);
-    let long_bp = rolling_sum_strict(&buying_pressures, period_long);
-    let short_tr = rolling_sum_strict(&true_ranges, period_short);
-    let medium_tr = rolling_sum_strict(&true_ranges, period_medium);
-    let long_tr = rolling_sum_strict(&true_ranges, period_long);
+    let mut bp_values = vec![0.0; len];
+    let mut tr_values = vec![0.0; len];
+    let mut bp_valid = vec![false; len];
+    let mut tr_valid = vec![false; len];
 
-    for i in 0..len {
-        if let (
-            Some(short_bp),
-            Some(medium_bp),
-            Some(long_bp),
-            Some(short_tr),
-            Some(medium_tr),
-            Some(long_tr),
-        ) = (
-            short_bp[i],
-            medium_bp[i],
-            long_bp[i],
-            short_tr[i],
-            medium_tr[i],
-            long_tr[i],
-        ) {
-            if short_tr == 0.0 || medium_tr == 0.0 || long_tr == 0.0 {
+    let mut short_bp_sum = 0.0;
+    let mut medium_bp_sum = 0.0;
+    let mut long_bp_sum = 0.0;
+    let mut short_tr_sum = 0.0;
+    let mut medium_tr_sum = 0.0;
+    let mut long_tr_sum = 0.0;
+    let mut short_bp_valid = 0usize;
+    let mut medium_bp_valid = 0usize;
+    let mut long_bp_valid = 0usize;
+    let mut short_tr_valid = 0usize;
+    let mut medium_tr_valid = 0usize;
+    let mut long_tr_valid = 0usize;
+
+    for i in 1..len {
+        if let (Some(close), Some(low), Some(prev_close)) = (closes[i], lows[i], closes[i - 1]) {
+            let bp = close - low.min(prev_close);
+            bp_values[i] = bp;
+            bp_valid[i] = true;
+            short_bp_sum += bp;
+            medium_bp_sum += bp;
+            long_bp_sum += bp;
+            short_bp_valid += 1;
+            medium_bp_valid += 1;
+            long_bp_valid += 1;
+        }
+
+        if let (Some(prev_close), Some(high), Some(low)) = (closes[i - 1], highs[i], lows[i]) {
+            let tr = high.max(prev_close) - low.min(prev_close);
+            tr_values[i] = tr;
+            tr_valid[i] = true;
+            short_tr_sum += tr;
+            medium_tr_sum += tr;
+            long_tr_sum += tr;
+            short_tr_valid += 1;
+            medium_tr_valid += 1;
+            long_tr_valid += 1;
+        }
+
+        if i >= period_short {
+            short_bp_sum -= bp_values[i - period_short];
+            short_tr_sum -= tr_values[i - period_short];
+            short_bp_valid -= bp_valid[i - period_short] as usize;
+            short_tr_valid -= tr_valid[i - period_short] as usize;
+        }
+        if i >= period_medium {
+            medium_bp_sum -= bp_values[i - period_medium];
+            medium_tr_sum -= tr_values[i - period_medium];
+            medium_bp_valid -= bp_valid[i - period_medium] as usize;
+            medium_tr_valid -= tr_valid[i - period_medium] as usize;
+        }
+        if i >= period_long {
+            long_bp_sum -= bp_values[i - period_long];
+            long_tr_sum -= tr_values[i - period_long];
+            long_bp_valid -= bp_valid[i - period_long] as usize;
+            long_tr_valid -= tr_valid[i - period_long] as usize;
+        }
+
+        if short_bp_valid == period_short
+            && medium_bp_valid == period_medium
+            && long_bp_valid == period_long
+            && short_tr_valid == period_short
+            && medium_tr_valid == period_medium
+            && long_tr_valid == period_long
+        {
+            if short_tr_sum == 0.0 || medium_tr_sum == 0.0 || long_tr_sum == 0.0 {
                 continue;
             }
 
-            let uo_point =
-                ((long_bp / long_tr + 2.0 * (medium_bp / medium_tr) + 4.0 * (short_bp / short_tr))
-                    * 100.0)
-                    / 7.0;
+            let uo_point = ((long_bp_sum / long_tr_sum
+                + 2.0 * (medium_bp_sum / medium_tr_sum)
+                + 4.0 * (short_bp_sum / short_tr_sum))
+                * 100.0)
+                / 7.0;
 
             if uo_point.is_finite() {
                 ultosc[i] = Some(uo_point);
@@ -56,40 +99,6 @@ pub fn ultosc(
     }
 
     ultosc
-}
-
-fn calc_buying_pressures(closes: &[Option<f64>], lows: &[Option<f64>]) -> Vec<Option<f64>> {
-    let len = closes.len();
-    let mut buying_pressures = vec![None; len];
-
-    for i in 1..len {
-        let (Some(close), Some(low), Some(prev_close)) = (closes[i], lows[i], closes[i - 1]) else {
-            continue;
-        };
-
-        buying_pressures[i] = Some(close - low.min(prev_close));
-    }
-
-    buying_pressures
-}
-
-fn calc_true_ranges(
-    closes: &[Option<f64>],
-    highs: &[Option<f64>],
-    lows: &[Option<f64>],
-) -> Vec<Option<f64>> {
-    let len = closes.len();
-    let mut true_ranges = vec![None; len];
-
-    for i in 1..len {
-        let (Some(prev_close), Some(high), Some(low)) = (closes[i - 1], highs[i], lows[i]) else {
-            continue;
-        };
-
-        true_ranges[i] = Some(high.max(prev_close) - low.min(prev_close));
-    }
-
-    true_ranges
 }
 
 #[cfg(test)]

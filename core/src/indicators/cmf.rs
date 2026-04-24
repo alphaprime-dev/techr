@@ -1,4 +1,4 @@
-use crate::utils::{calc_clv, rolling_sum_strict};
+use crate::utils::calc_clv;
 
 pub fn cmf(
     highs: &[Option<f64>],
@@ -19,27 +19,33 @@ pub fn cmf(
         return cmf;
     }
 
-    let money_flow_volume = highs
-        .iter()
-        .zip(lows.iter())
-        .zip(closes.iter())
-        .zip(volumes.iter())
-        .map(
-            |(((high, low), close), volume)| match (high, low, close, volume) {
-                (Some(high), Some(low), Some(close), Some(volume)) => {
-                    Some(calc_clv(*high, *low, *close) * *volume)
-                }
-                _ => None,
-            },
-        )
-        .collect::<Vec<_>>();
-    let volume_sums = rolling_sum_strict(volumes, period);
-    let money_flow_sums = rolling_sum_strict(&money_flow_volume, period);
+    let mut money_flow_values = vec![0.0; len];
+    let mut volume_values = vec![0.0; len];
+    let mut valid = vec![false; len];
+    let mut sum_money_flow = 0.0;
+    let mut sum_volume = 0.0;
+    let mut valid_count = 0usize;
 
     for i in 0..len {
-        if let (Some(sum_money_flow_volume), Some(sum_volume)) =
-            (money_flow_sums[i], volume_sums[i])
+        if let (Some(high), Some(low), Some(close), Some(volume)) =
+            (highs[i], lows[i], closes[i], volumes[i])
         {
+            let money_flow = calc_clv(high, low, close) * volume;
+            money_flow_values[i] = money_flow;
+            volume_values[i] = volume;
+            valid[i] = true;
+            sum_money_flow += money_flow;
+            sum_volume += volume;
+            valid_count += 1;
+        }
+
+        if i >= period {
+            sum_money_flow -= money_flow_values[i - period];
+            sum_volume -= volume_values[i - period];
+            valid_count -= valid[i - period] as usize;
+        }
+
+        if valid_count == period {
             cmf[i] = if sum_volume == 0.0 {
                 if i == period - 1 {
                     None
@@ -47,7 +53,7 @@ pub fn cmf(
                     Some(0.0)
                 }
             } else {
-                Some(sum_money_flow_volume / sum_volume)
+                Some(sum_money_flow / sum_volume)
             };
         }
     }

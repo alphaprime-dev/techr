@@ -17,8 +17,9 @@ pub fn psar(
     let mut extreme_point = None;
     let mut current_psar = None;
     let mut acceleration_factor = initial_acceleration_factor;
-    let mut last_valid_highs = Vec::with_capacity(2);
-    let mut last_valid_lows = Vec::with_capacity(2);
+    let mut last_valid_highs = [0.0; 2];
+    let mut last_valid_lows = [0.0; 2];
+    let mut last_valid_count = 0usize;
     let mut emitted_points = 0usize;
 
     for i in 1..len {
@@ -50,8 +51,9 @@ pub fn psar(
             } else {
                 prev_high
             });
-            last_valid_highs = vec![prev_high, high];
-            last_valid_lows = vec![prev_low, low];
+            last_valid_highs = [prev_high, high];
+            last_valid_lows = [prev_low, low];
+            last_valid_count = 2;
             continue;
         }
 
@@ -68,7 +70,7 @@ pub fn psar(
 
         psar_point += acceleration_factor * (current_extreme - psar_point);
 
-        if emitted_points > 0 && last_valid_highs.len() >= 2 && last_valid_lows.len() >= 2 {
+        if emitted_points > 0 && last_valid_count == 2 {
             psar_point = if current_direction == 1 {
                 psar_point.min(last_valid_lows[0].min(last_valid_lows[1]))
             } else {
@@ -100,14 +102,16 @@ pub fn psar(
         psar[i] = Some(psar_point);
         emitted_points += 1;
 
-        if last_valid_highs.len() == 2 {
-            last_valid_highs.remove(0);
+        if last_valid_count < 2 {
+            last_valid_highs[last_valid_count] = high;
+            last_valid_lows[last_valid_count] = low;
+            last_valid_count += 1;
+        } else {
+            last_valid_highs[0] = last_valid_highs[1];
+            last_valid_highs[1] = high;
+            last_valid_lows[0] = last_valid_lows[1];
+            last_valid_lows[1] = low;
         }
-        if last_valid_lows.len() == 2 {
-            last_valid_lows.remove(0);
-        }
-        last_valid_highs.push(high);
-        last_valid_lows.push(low);
     }
 
     psar
