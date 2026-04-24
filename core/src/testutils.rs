@@ -18,6 +18,11 @@ pub fn load_data(path: &str, field: &str) -> Vec<f64> {
 }
 
 #[cfg(test)]
+pub fn load_data_nullable(path: &str, field: &str) -> Vec<Option<f64>> {
+    load_data(path, field).into_iter().map(Some).collect()
+}
+
+#[cfg(test)]
 pub fn load_expected<T: serde::de::DeserializeOwned>(path: &str) -> Vec<T> {
     use std::fs;
 

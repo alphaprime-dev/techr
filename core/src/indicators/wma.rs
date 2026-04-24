@@ -18,10 +18,7 @@ mod tests {
     fn test_wma() {
         let test_cases = vec!["005930", "TSLA"];
         for symbol in test_cases {
-            let input = testutils::load_data(&format!("../data/{}.json", symbol), "c")
-                .into_iter()
-                .map(Some)
-                .collect::<Vec<_>>();
+            let input = testutils::load_data_nullable(&format!("../data/{}.json", symbol), "c");
             let result = wma(&input, 20);
             let expected = testutils::load_expected::<Option<f64>>(&format!(
                 "../data/expected/wma_{}.json",

@@ -59,10 +59,7 @@ mod tests {
     fn test_bband() {
         let test_cases = vec!["005930", "TSLA"];
         for symbol in test_cases {
-            let input = testutils::load_data(&format!("../data/{}.json", symbol), "c")
-                .into_iter()
-                .map(Some)
-                .collect::<Vec<_>>();
+            let input = testutils::load_data_nullable(&format!("../data/{}.json", symbol), "c");
             let (upper, middle, lower) = bband(&input, 20, None);
 
             let expected_upper = testutils::load_expected::<Option<f64>>(&format!(

@@ -35,10 +35,7 @@ mod tests {
     fn test_disparity() {
         let test_cases = vec!["005930", "TSLA"];
         for symbol in test_cases {
-            let close = testutils::load_data(&format!("../data/{}.json", symbol), "c")
-                .into_iter()
-                .map(Some)
-                .collect::<Vec<_>>();
+            let close = testutils::load_data_nullable(&format!("../data/{}.json", symbol), "c");
             let result = disparity(&close, 20);
             let expected = testutils::load_expected::<Option<f64>>(&format!(
                 "../data/expected/disparity_{}.json",

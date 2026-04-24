@@ -52,9 +52,7 @@ pub fn ema(data: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
     ema_impl(data, period)
 }
 
-pub(crate) fn ema_aligned(data: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
-    ema_impl(data, period)
-}
+pub(crate) use ema as ema_aligned;
 
 #[cfg(test)]
 mod tests {
@@ -70,10 +68,7 @@ mod tests {
 
         // When
         for symbol in test_cases {
-            let input = testutils::load_data(&format!("../data/{}.json", symbol), "c")
-                .into_iter()
-                .map(Some)
-                .collect::<Vec<_>>();
+            let input = testutils::load_data_nullable(&format!("../data/{}.json", symbol), "c");
             let result = ema(&input, 20);
             let expected = testutils::load_expected::<Option<f64>>(&format!(
                 "../data/expected/ema_{}.json",

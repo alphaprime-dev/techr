@@ -168,21 +168,37 @@ fn rolling_weighted_mean_strict_impl(data: &[Option<f64>], period: usize) -> Vec
     }
 
     let weight_sum = (period * (period + 1)) as f64 / 2.0;
+    let mut sum = 0.0;
+    let mut weighted_sum = 0.0;
+    let mut valid_count = 0usize;
 
-    for end in (period - 1)..len {
-        let start = end + 1 - period;
-        let mut weighted_sum = 0.0;
-        let mut valid = true;
+    for i in 0..period {
+        if let Some(value) = data[i] {
+            sum += value;
+            weighted_sum += value * (i + 1) as f64;
+            valid_count += 1;
+        }
+    }
 
-        for (offset, item) in data[start..=end].iter().enumerate() {
-            let Some(value) = *item else {
-                valid = false;
-                break;
-            };
-            weighted_sum += value * (offset + 1) as f64;
+    if valid_count == period {
+        result[period - 1] = Some(weighted_sum / weight_sum);
+    }
+
+    for end in period..len {
+        let entering = data[end].unwrap_or(0.0);
+        let leaving = data[end - period].unwrap_or(0.0);
+
+        weighted_sum = weighted_sum - sum + entering * period as f64;
+        sum += entering - leaving;
+
+        if data[end].is_some() {
+            valid_count += 1;
+        }
+        if data[end - period].is_some() {
+            valid_count -= 1;
         }
 
-        if valid {
+        if valid_count == period {
             result[end] = Some(weighted_sum / weight_sum);
         }
     }

@@ -17,9 +17,7 @@ pub fn sma(data: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
     sma_impl(data, period)
 }
 
-pub(crate) fn sma_aligned(data: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
-    sma_impl(data, period)
-}
+pub(crate) use sma as sma_aligned;
 
 #[cfg(test)]
 mod tests {
@@ -35,10 +33,7 @@ mod tests {
 
         // When
         for symbol in test_cases {
-            let input = testutils::load_data(&format!("../data/{}.json", symbol), "c")
-                .into_iter()
-                .map(Some)
-                .collect::<Vec<_>>();
+            let input = testutils::load_data_nullable(&format!("../data/{}.json", symbol), "c");
             let result = sma(&input, 20);
             let expected = testutils::load_expected::<Option<f64>>(&format!(
                 "../data/expected/sma_{}.json",
