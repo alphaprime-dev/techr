@@ -276,10 +276,13 @@ pub fn rolling_mean_stddev_strict(
     (means, stddevs)
 }
 
-fn push_max_index(deque: &mut VecDeque<usize>, data: &[Option<f64>], idx: usize) {
-    let current = data[idx].expect("push_max_index requires a present value");
+fn push_max_index(deque: &mut VecDeque<usize>, data: &[f64], idx: usize) {
+    if data[idx].is_nan() {
+        return;
+    }
+
     while let Some(&back) = deque.back() {
-        if data[back].expect("deque indices always refer to present values") <= current {
+        if data[back] <= data[idx] {
             deque.pop_back();
         } else {
             break;
@@ -288,10 +291,13 @@ fn push_max_index(deque: &mut VecDeque<usize>, data: &[Option<f64>], idx: usize)
     deque.push_back(idx);
 }
 
-fn push_min_index(deque: &mut VecDeque<usize>, data: &[Option<f64>], idx: usize) {
-    let current = data[idx].expect("push_min_index requires a present value");
+fn push_min_index(deque: &mut VecDeque<usize>, data: &[f64], idx: usize) {
+    if data[idx].is_nan() {
+        return;
+    }
+
     while let Some(&back) = deque.back() {
-        if data[back].expect("deque indices always refer to present values") >= current {
+        if data[back] >= data[idx] {
             deque.pop_back();
         } else {
             break;
