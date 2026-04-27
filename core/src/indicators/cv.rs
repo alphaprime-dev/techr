@@ -1,4 +1,4 @@
-use crate::indicators::ema::ema;
+use crate::indicators::ema::ema_dense;
 
 pub fn cv(highs: &[f64], lows: &[f64], period: usize) -> Vec<Option<f64>> {
     let mut cv = vec![None; highs.len()];
@@ -9,7 +9,7 @@ pub fn cv(highs: &[f64], lows: &[f64], period: usize) -> Vec<Option<f64>> {
     }
 
     let high_low_diffs: Vec<f64> = highs.iter().zip(lows.iter()).map(|(h, l)| h - l).collect();
-    let ema_high_low_diffs = ema(&high_low_diffs, period);
+    let ema_high_low_diffs = ema_dense(&high_low_diffs, period);
 
     for i in period * 2 - 1..len {
         if let (Some(current_ema), Some(previous_ema)) =

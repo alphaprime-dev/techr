@@ -1,4 +1,4 @@
-use crate::indicators::ema::{ema, ema_aligned};
+use crate::indicators::ema::{ema_aligned, ema_dense};
 
 pub fn sonar(
     data: &[f64],
@@ -29,7 +29,7 @@ pub fn sonar_line(data: &[f64], period: usize, step: usize) -> Vec<Option<f64>> 
         return sonar_line;
     }
 
-    let ema_values = ema(data, period);
+    let ema_values = ema_dense(data, period);
 
     for i in (period + step - 1)..data.len() {
         if let (Some(current_ema), Some(previous_ema)) = (ema_values[i], ema_values[i - step]) {

@@ -1,4 +1,4 @@
-use crate::indicators::sma::{sma, sma_aligned};
+use crate::indicators::sma::{sma_aligned, sma_dense};
 
 pub fn eom(
     highs: &[f64],
@@ -55,7 +55,7 @@ pub fn eom_line(
     }
 
     let mut eom_line = vec![None; len];
-    let eom_sma = sma(&eom_values, period);
+    let eom_sma = sma_dense(&eom_values, period);
     for (i, &value) in eom_sma.iter().enumerate() {
         eom_line[i + 1] = value;
     }
