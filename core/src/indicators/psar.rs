@@ -1,7 +1,7 @@
 pub fn psar(
-    highs: &[f64],
-    lows: &[f64],
-    closes: &[f64],
+    highs: &[Option<f64>],
+    lows: &[Option<f64>],
+    closes: &[Option<f64>],
     increment: f64,
     initial_acceleration_factor: f64,
     max_acceleration_factor: f64,
@@ -13,41 +13,105 @@ pub fn psar(
         return psar;
     }
 
-    let mut direction = (closes[1] > closes[0]) as usize;
-    let mut extreme_point = if direction == 1 { highs[1] } else { lows[1] };
-    let mut current_psar = if direction == 1 { lows[0] } else { highs[0] };
+    let mut direction = None;
+    let mut extreme_point = None;
+    let mut current_psar = None;
     let mut acceleration_factor = initial_acceleration_factor;
+    let mut last_valid_highs = [0.0; 2];
+    let mut last_valid_lows = [0.0; 2];
+    let mut last_valid_count = 0usize;
+    let mut emitted_points = 0usize;
 
-    for i in 2..len {
-        current_psar += acceleration_factor * (extreme_point - current_psar);
+    for i in 1..len {
+        if direction.is_none() {
+            let (
+                Some(prev_close),
+                Some(close),
+                Some(prev_low),
+                Some(low),
+                Some(prev_high),
+                Some(high),
+            ) = (
+                closes[i - 1],
+                closes[i],
+                lows[i - 1],
+                lows[i],
+                highs[i - 1],
+                highs[i],
+            )
+            else {
+                continue;
+            };
 
-        if i >= 3 {
-            current_psar = if direction == 1 {
-                current_psar.min(lows[i - 1].min(lows[i - 2]))
+            let next_direction = (close > prev_close) as usize;
+            direction = Some(next_direction);
+            extreme_point = Some(if next_direction == 1 { high } else { low });
+            current_psar = Some(if next_direction == 1 {
+                prev_low
             } else {
-                current_psar.max(highs[i - 1].max(highs[i - 2]))
+                prev_high
+            });
+            last_valid_highs = [prev_high, high];
+            last_valid_lows = [prev_low, low];
+            last_valid_count = 2;
+            continue;
+        }
+
+        let (
+            Some(high),
+            Some(low),
+            Some(mut psar_point),
+            Some(mut current_extreme),
+            Some(mut current_direction),
+        ) = (highs[i], lows[i], current_psar, extreme_point, direction)
+        else {
+            continue;
+        };
+
+        psar_point += acceleration_factor * (current_extreme - psar_point);
+
+        if emitted_points > 0 && last_valid_count == 2 {
+            psar_point = if current_direction == 1 {
+                psar_point.min(last_valid_lows[0].min(last_valid_lows[1]))
+            } else {
+                psar_point.max(last_valid_highs[0].max(last_valid_highs[1]))
             };
         }
 
-        let is_direction_changed = if direction == 1 {
-            lows[i] < current_psar
+        let is_direction_changed = if current_direction == 1 {
+            low < psar_point
         } else {
-            highs[i] > current_psar
+            high > psar_point
         };
 
         if is_direction_changed {
-            direction = 1 - direction;
-            current_psar = extreme_point;
-            extreme_point = if direction == 1 { highs[i] } else { lows[i] };
+            current_direction = 1 - current_direction;
+            psar_point = current_extreme;
+            current_extreme = if current_direction == 1 { high } else { low };
             acceleration_factor = initial_acceleration_factor;
-        } else if (direction == 1 && highs[i] > extreme_point)
-            || (direction == 0 && lows[i] < extreme_point)
+        } else if (current_direction == 1 && high > current_extreme)
+            || (current_direction == 0 && low < current_extreme)
         {
-            extreme_point = if direction == 1 { highs[i] } else { lows[i] };
+            current_extreme = if current_direction == 1 { high } else { low };
             acceleration_factor = (acceleration_factor + increment).min(max_acceleration_factor);
         }
 
-        psar[i] = Some(current_psar);
+        current_psar = Some(psar_point);
+        extreme_point = Some(current_extreme);
+        direction = Some(current_direction);
+        psar[i] = Some(psar_point);
+        emitted_points += 1;
+
+        if last_valid_count < 2 {
+            last_valid_highs[last_valid_count] = high;
+            last_valid_lows[last_valid_count] = low;
+            last_valid_count += 1;
+        } else {
+            last_valid_highs[0] = last_valid_highs[1];
+            last_valid_highs[1] = high;
+            last_valid_lows[0] = last_valid_lows[1];
+            last_valid_lows[1] = low;
+        }
     }
 
     psar
@@ -63,9 +127,18 @@ mod tests {
     fn test_psar() {
         let test_cases = vec!["005930", "TSLA"];
         for symbol in test_cases {
-            let high = testutils::load_data(&format!("../data/{}.json", symbol), "h");
-            let low = testutils::load_data(&format!("../data/{}.json", symbol), "l");
-            let close = testutils::load_data(&format!("../data/{}.json", symbol), "c");
+            let high = testutils::load_data(&format!("../data/{}.json", symbol), "h")
+                .into_iter()
+                .map(Some)
+                .collect::<Vec<_>>();
+            let low = testutils::load_data(&format!("../data/{}.json", symbol), "l")
+                .into_iter()
+                .map(Some)
+                .collect::<Vec<_>>();
+            let close = testutils::load_data(&format!("../data/{}.json", symbol), "c")
+                .into_iter()
+                .map(Some)
+                .collect::<Vec<_>>();
             let result = psar(&high, &low, &close, 0.02, 0.02, 0.2);
             let expected = testutils::load_expected::<Option<f64>>(&format!(
                 "../data/expected/psar_{}.json",
@@ -79,5 +152,47 @@ mod tests {
                 symbol
             );
         }
+    }
+
+    #[test]
+    fn test_psar_gap_preserves_state_and_resumes_without_reseed() {
+        let highs = vec![
+            Some(10.0),
+            Some(11.0),
+            Some(12.0),
+            None,
+            Some(13.0),
+            Some(14.0),
+        ];
+        let lows = vec![
+            Some(8.0),
+            Some(9.0),
+            Some(10.0),
+            None,
+            Some(11.0),
+            Some(12.0),
+        ];
+        let closes = vec![
+            Some(9.0),
+            Some(10.0),
+            Some(11.0),
+            None,
+            Some(12.0),
+            Some(13.0),
+        ];
+
+        let result = psar(&highs, &lows, &closes, 0.02, 0.02, 0.2);
+
+        assert_eq!(
+            result,
+            vec![
+                None,
+                None,
+                Some(8.06),
+                None,
+                Some(8.217600000000001),
+                Some(8.504544000000001),
+            ]
+        );
     }
 }

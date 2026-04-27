@@ -154,6 +154,37 @@ pub fn rolling_mean_strict(data: &[Option<f64>], period: usize) -> Vec<Option<f6
     means
 }
 
+pub fn rolling_sum_strict(data: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
+    let len = data.len();
+    let mut sums = vec![None; len];
+
+    if len < period || period == 0 {
+        return sums;
+    }
+
+    let mut sum = 0.0;
+    let mut valid_count = 0usize;
+
+    for i in 0..len {
+        if let Some(value) = data[i] {
+            sum += value;
+            valid_count += 1;
+        }
+
+        if i >= period {
+            if let Some(value) = data[i - period] {
+                sum -= value;
+                valid_count -= 1;
+            }
+        }
+
+        if i >= period - 1 && valid_count == period {
+            sums[i] = Some(sum);
+        }
+    }
+
+    sums
+}
 /// Computes a rolling weighted mean that only emits a value when the full window is valid.
 pub fn rolling_weighted_mean_strict(data: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
     let len = data.len();
@@ -318,6 +349,31 @@ pub fn calc_true_ranges(highs: &[f64], lows: &[f64], closes: &[f64]) -> Vec<f64>
     result
 }
 
+pub fn calc_true_ranges_aligned(
+    highs: &[Option<f64>],
+    lows: &[Option<f64>],
+    closes: &[Option<f64>],
+) -> Vec<Option<f64>> {
+    let len = highs.len();
+    if len == 0 || len != lows.len() || len != closes.len() {
+        return Vec::new();
+    }
+
+    let mut result = vec![None; len];
+
+    for i in 1..len {
+        let (Some(_prev_high), Some(_prev_low), Some(high), Some(low), Some(prev_close)) =
+            (highs[i - 1], lows[i - 1], highs[i], lows[i], closes[i - 1])
+        else {
+            continue;
+        };
+
+        result[i] = Some(calc_tr(high, low, prev_close));
+    }
+
+    result
+}
+
 fn calc_tr(high: f64, low: f64, prev_close: f64) -> f64 {
     let th = high.max(prev_close);
     let tl = low.min(prev_close);
@@ -331,6 +387,51 @@ pub fn wilders_smoothing(data: &[f64], period: usize) -> Vec<f64> {
     for i in period - 1..data.len() {
         partial_sum = partial_sum - (partial_sum / period as f64) + data[i];
         result.push(partial_sum);
+    }
+
+    result
+}
+
+pub fn wilders_smoothing_aligned(data: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
+    let len = data.len();
+    let mut result = vec![None; len];
+
+    if period == 0 || len < period {
+        return result;
+    }
+
+    let mut seed_count = 0usize;
+    let mut seed_sum = 0.0;
+    let mut smoothed = None;
+
+    for (idx, item) in data.iter().enumerate() {
+        let Some(value) = *item else {
+            if smoothed.is_none() {
+                seed_count = 0;
+                seed_sum = 0.0;
+            }
+            continue;
+        };
+
+        if let Some(current) = smoothed {
+            let next = current - (current / period as f64) + value;
+            smoothed = Some(next);
+            result[idx] = Some(next);
+            continue;
+        }
+
+        if seed_count < period - 1 {
+            seed_sum += value;
+            seed_count += 1;
+            continue;
+        }
+
+        if seed_count == period - 1 {
+            let initial = seed_sum - (seed_sum / period as f64) + value;
+            smoothed = Some(initial);
+            result[idx] = Some(initial);
+            seed_count += 1;
+        }
     }
 
     result
@@ -485,6 +586,15 @@ mod tests {
     }
 
     #[test]
+    fn test_rolling_sum_strict() {
+        let data = vec![Some(1.0), Some(3.0), None, Some(5.0), Some(7.0)];
+
+        let sums = rolling_sum_strict(&data, 2);
+
+        assert_eq!(sums, vec![None, Some(4.0), None, None, Some(12.0)]);
+    }
+
+    #[test]
     fn test_rolling_weighted_mean_strict() {
         let data = vec![None, Some(1.0), Some(2.0), None, Some(4.0)];
 
@@ -550,6 +660,28 @@ mod tests {
     }
 
     #[test]
+    fn test_calc_true_ranges_aligned_requires_valid_predecessor() {
+        let highs = vec![Some(10.0), Some(12.0), None, Some(15.0)];
+        let lows = vec![Some(8.0), Some(10.0), None, Some(13.0)];
+        let closes = vec![Some(9.0), Some(11.0), None, Some(14.0)];
+
+        let result = calc_true_ranges_aligned(&highs, &lows, &closes);
+
+        assert_eq!(result, vec![None, Some(3.0), None, None]);
+    }
+
+    #[test]
+    fn test_calc_true_ranges_aligned_requires_predecessor_high_low() {
+        let highs = vec![Some(10.0), None, Some(13.0), Some(15.0)];
+        let lows = vec![Some(8.0), None, Some(11.0), Some(13.0)];
+        let closes = vec![Some(9.0), Some(12.0), Some(12.5), Some(14.0)];
+
+        let result = calc_true_ranges_aligned(&highs, &lows, &closes);
+
+        assert_eq!(result, vec![None, None, None, Some(2.5)]);
+    }
+
+    #[test]
     fn test_calc_wilders_smoothing() {
         // Using extended data for a more robust test case.
         let data = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0];
@@ -567,5 +699,23 @@ mod tests {
             round_vec(result.into_iter().map(Some).collect(), 8),
             round_vec(expected, 8)
         );
+    }
+
+    #[test]
+    fn test_calc_wilders_smoothing_aligned_resumes_after_gap() {
+        let data = vec![Some(1.0), Some(2.0), None, Some(3.0), Some(4.0)];
+
+        let result = wilders_smoothing_aligned(&data, 2);
+
+        assert_eq!(result, vec![None, Some(2.5), None, Some(4.25), Some(6.125)]);
+    }
+
+    #[test]
+    fn test_calc_wilders_smoothing_aligned_requires_contiguous_seed_window() {
+        let data = vec![Some(1.0), None, Some(2.0), Some(3.0), Some(4.0)];
+
+        let result = wilders_smoothing_aligned(&data, 2);
+
+        assert_eq!(result, vec![None, None, None, Some(4.0), Some(6.0)]);
     }
 }

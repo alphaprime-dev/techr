@@ -1,5 +1,5 @@
 /// Volume Ratio (VR)
-pub fn vr(closes: &[f64], volumes: &[f64], period: usize) -> Vec<Option<f64>> {
+pub fn vr(closes: &[Option<f64>], volumes: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
     let len = closes.len();
     let mut result = vec![None; len];
 
@@ -7,55 +7,53 @@ pub fn vr(closes: &[f64], volumes: &[f64], period: usize) -> Vec<Option<f64>> {
         return result;
     }
 
-    let mut up_volume = 0.0;
-    let mut down_volume = 0.0;
-    let mut same_volume = 0.0;
+    let mut up_values = vec![0.0; len];
+    let mut down_values = vec![0.0; len];
+    let mut same_values = vec![0.0; len];
+    let mut valid = vec![false; len];
+    let mut up_sum = 0.0;
+    let mut down_sum = 0.0;
+    let mut same_sum = 0.0;
+    let mut valid_count = 0usize;
 
-    // Initialize volumes for the first period
-    for i in 1..period {
-        update_volumes(
-            closes[i] - closes[i - 1],
-            volumes[i],
-            &mut up_volume,
-            &mut down_volume,
-            &mut same_volume,
-        );
-    }
+    for i in 1..len {
+        let (Some(close), Some(prev_close), Some(volume)) = (closes[i], closes[i - 1], volumes[i])
+        else {
+            if i >= period {
+                up_sum -= up_values[i - period];
+                down_sum -= down_values[i - period];
+                same_sum -= same_values[i - period];
+                valid_count -= valid[i - period] as usize;
+            }
+            continue;
+        };
 
-    // Calculate VR for each point after the initial period
-    for i in period..len {
-        update_volumes(
-            closes[i] - closes[i - 1],
-            volumes[i],
-            &mut up_volume,
-            &mut down_volume,
-            &mut same_volume,
-        );
+        if close > prev_close {
+            up_values[i] = volume;
+        } else if close < prev_close {
+            down_values[i] = volume;
+        } else {
+            same_values[i] = volume;
+        }
+        valid[i] = true;
+        up_sum += up_values[i];
+        down_sum += down_values[i];
+        same_sum += same_values[i];
+        valid_count += 1;
 
-        result[i] = Some(calculate_vr(up_volume, down_volume, same_volume));
+        if i >= period {
+            up_sum -= up_values[i - period];
+            down_sum -= down_values[i - period];
+            same_sum -= same_values[i - period];
+            valid_count -= valid[i - period] as usize;
+        }
 
-        // Adjust volumes by removing the oldest value
-        update_volumes(
-            closes[i - period + 1] - closes[i - period],
-            -volumes[i - period + 1],
-            &mut up_volume,
-            &mut down_volume,
-            &mut same_volume,
-        );
+        if valid_count == period {
+            result[i] = Some(calculate_vr(up_sum, down_sum, same_sum));
+        }
     }
 
     result
-}
-
-#[inline]
-fn update_volumes(diff: f64, volume: f64, up: &mut f64, down: &mut f64, same: &mut f64) {
-    if diff > 0.0 {
-        *up += volume;
-    } else if diff < 0.0 {
-        *down += volume;
-    } else {
-        *same += volume;
-    }
 }
 
 #[inline]
@@ -78,8 +76,14 @@ mod tests {
     fn test_vr() {
         let test_cases = vec!["005930", "TSLA"];
         for symbol in test_cases {
-            let close = testutils::load_data(&format!("../data/{}.json", symbol), "c");
-            let volume = testutils::load_data(&format!("../data/{}.json", symbol), "v");
+            let close = testutils::load_data(&format!("../data/{}.json", symbol), "c")
+                .into_iter()
+                .map(Some)
+                .collect::<Vec<_>>();
+            let volume = testutils::load_data(&format!("../data/{}.json", symbol), "v")
+                .into_iter()
+                .map(Some)
+                .collect::<Vec<_>>();
             let result = vr(&close, &volume, 20);
             let expected = testutils::load_expected::<Option<f64>>(&format!(
                 "../data/expected/vr_{}.json",
@@ -93,5 +97,22 @@ mod tests {
                 symbol
             );
         }
+    }
+
+    #[test]
+    fn test_vr_gap_invalidates_window_until_full_pairwise_window_returns() {
+        let closes = vec![
+            Some(10.0),
+            Some(11.0),
+            Some(10.0),
+            None,
+            Some(10.0),
+            Some(11.0),
+        ];
+        let volumes = vec![Some(1.0), Some(3.0), Some(2.0), None, Some(4.0), Some(5.0)];
+
+        let result = vr(&closes, &volumes, 2);
+
+        assert_eq!(result, vec![None, None, Some(150.0), None, None, None]);
     }
 }

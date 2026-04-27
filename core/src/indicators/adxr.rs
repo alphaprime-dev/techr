@@ -1,9 +1,9 @@
 use crate::indicators::adx::adx;
 
 pub fn adxr(
-    highs: &[f64],
-    lows: &[f64],
-    closes: &[f64],
+    highs: &[Option<f64>],
+    lows: &[Option<f64>],
+    closes: &[Option<f64>],
     dmi_period: usize,
     adx_period: usize,
     adxr_period: usize,
@@ -35,9 +35,18 @@ mod tests {
     fn test_adxr() {
         let test_cases = vec!["005930", "TSLA"];
         for symbol in test_cases {
-            let highs = testutils::load_data(&format!("../data/{}.json", symbol), "h");
-            let lows = testutils::load_data(&format!("../data/{}.json", symbol), "l");
-            let closes = testutils::load_data(&format!("../data/{}.json", symbol), "c");
+            let highs = testutils::load_data(&format!("../data/{}.json", symbol), "h")
+                .into_iter()
+                .map(Some)
+                .collect::<Vec<_>>();
+            let lows = testutils::load_data(&format!("../data/{}.json", symbol), "l")
+                .into_iter()
+                .map(Some)
+                .collect::<Vec<_>>();
+            let closes = testutils::load_data(&format!("../data/{}.json", symbol), "c")
+                .into_iter()
+                .map(Some)
+                .collect::<Vec<_>>();
 
             let result = adxr(&highs, &lows, &closes, 14, 14, 14);
             let expected = testutils::load_expected::<Option<f64>>(&format!(
@@ -52,5 +61,74 @@ mod tests {
                 symbol
             );
         }
+    }
+
+    #[test]
+    fn test_adxr_requires_current_and_lagged_adx_after_gaps() {
+        let highs = vec![
+            Some(10.0),
+            Some(12.0),
+            Some(14.0),
+            None,
+            Some(15.0),
+            Some(16.0),
+            Some(18.0),
+            None,
+            Some(19.0),
+            Some(20.0),
+        ];
+        let lows = vec![
+            Some(8.0),
+            Some(9.0),
+            Some(11.0),
+            None,
+            Some(13.0),
+            Some(14.0),
+            Some(15.0),
+            None,
+            Some(17.0),
+            Some(18.0),
+        ];
+        let closes = vec![
+            Some(9.0),
+            Some(11.0),
+            Some(13.0),
+            None,
+            Some(14.0),
+            Some(15.0),
+            Some(17.0),
+            None,
+            Some(18.0),
+            Some(19.0),
+        ];
+
+        let result = adxr(&highs, &lows, &closes, 2, 2, 4);
+
+        assert_eq!(
+            result,
+            vec![
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(100.0)
+            ]
+        );
+    }
+
+    #[test]
+    fn test_adxr_length_mismatch_fails_closed() {
+        let highs = vec![Some(10.0), Some(12.0), Some(14.0)];
+        let lows = vec![Some(8.0), Some(9.0)];
+        let closes = vec![Some(9.0), Some(11.0), Some(13.0)];
+
+        let result = adxr(&highs, &lows, &closes, 2, 2, 2);
+
+        assert_eq!(result, vec![None, None, None]);
     }
 }

@@ -1,41 +1,60 @@
-use crate::{utils::calc_true_ranges, wilders_smoothing};
+use crate::utils::{calc_true_ranges_aligned, wilders_smoothing_aligned};
 
 pub fn dmi(
-    highs: &[f64],
-    lows: &[f64],
-    closes: &[f64],
+    highs: &[Option<f64>],
+    lows: &[Option<f64>],
+    closes: &[Option<f64>],
     period: usize,
 ) -> (Vec<Option<f64>>, Vec<Option<f64>>) {
     let len = highs.len();
     let mut plus_di = vec![None; len];
     let mut minus_di = vec![None; len];
 
-    let delta_highs: Vec<f64> = highs.windows(2).map(|w| (w[1] - w[0]).max(0.0)).collect();
-    let delta_lows: Vec<f64> = lows.windows(2).map(|w| (w[0] - w[1]).max(0.0)).collect();
-    let trs = calc_true_ranges(highs, lows, closes);
+    if len == 0 || len != lows.len() || len != closes.len() || period == 0 {
+        return (plus_di, minus_di);
+    }
 
-    let plus_dm: Vec<f64> = delta_highs
-        .iter()
-        .zip(delta_lows.iter())
-        .map(|(&dh, &dl)| if dh > dl && dh > 0.0 { dh } else { 0.0 })
-        .collect();
-    let minus_dm: Vec<f64> = delta_highs
-        .iter()
-        .zip(delta_lows.iter())
-        .map(|(&dh, &dl)| if dl > dh && dl > 0.0 { dl } else { 0.0 })
-        .collect();
+    let trs = calc_true_ranges_aligned(highs, lows, closes);
+    let mut plus_dm = vec![None; len];
+    let mut minus_dm = vec![None; len];
 
-    let plus_dm_sum = wilders_smoothing(&plus_dm, period);
-    let minus_dm_sum = wilders_smoothing(&minus_dm, period);
-    let tr_sum = wilders_smoothing(&trs, period);
+    for i in 1..len {
+        let (Some(prev_high), Some(high), Some(prev_low), Some(low), Some(_)) =
+            (highs[i - 1], highs[i], lows[i - 1], lows[i], trs[i])
+        else {
+            continue;
+        };
 
-    for i in period..len {
-        if tr_sum[i - period] == 0.0 {
-            plus_di[i] = Some(0.0);
-            minus_di[i] = Some(0.0);
+        let delta_high = (high - prev_high).max(0.0);
+        let delta_low = (prev_low - low).max(0.0);
+
+        plus_dm[i] = Some(if delta_high > delta_low && delta_high > 0.0 {
+            delta_high
         } else {
-            plus_di[i] = Some((plus_dm_sum[i - period] / tr_sum[i - period]) * 100.0);
-            minus_di[i] = Some((minus_dm_sum[i - period] / tr_sum[i - period]) * 100.0);
+            0.0
+        });
+        minus_dm[i] = Some(if delta_low > delta_high && delta_low > 0.0 {
+            delta_low
+        } else {
+            0.0
+        });
+    }
+
+    let plus_dm_sum = wilders_smoothing_aligned(&plus_dm, period);
+    let minus_dm_sum = wilders_smoothing_aligned(&minus_dm, period);
+    let tr_sum = wilders_smoothing_aligned(&trs, period);
+
+    for i in 0..len {
+        if let (Some(plus_sum), Some(minus_sum), Some(tr_total)) =
+            (plus_dm_sum[i], minus_dm_sum[i], tr_sum[i])
+        {
+            if tr_total == 0.0 {
+                plus_di[i] = Some(0.0);
+                minus_di[i] = Some(0.0);
+            } else {
+                plus_di[i] = Some((plus_sum / tr_total) * 100.0);
+                minus_di[i] = Some((minus_sum / tr_total) * 100.0);
+            }
         }
     }
 
@@ -52,9 +71,18 @@ mod tests {
     fn test_dmi() {
         let test_cases = vec!["005930", "TSLA"];
         for symbol in test_cases {
-            let highs = testutils::load_data(&format!("../data/{}.json", symbol), "h");
-            let lows = testutils::load_data(&format!("../data/{}.json", symbol), "l");
-            let closes = testutils::load_data(&format!("../data/{}.json", symbol), "c");
+            let highs = testutils::load_data(&format!("../data/{}.json", symbol), "h")
+                .into_iter()
+                .map(Some)
+                .collect::<Vec<_>>();
+            let lows = testutils::load_data(&format!("../data/{}.json", symbol), "l")
+                .into_iter()
+                .map(Some)
+                .collect::<Vec<_>>();
+            let closes = testutils::load_data(&format!("../data/{}.json", symbol), "c")
+                .into_iter()
+                .map(Some)
+                .collect::<Vec<_>>();
             let (plus_di, minus_di) = dmi(&highs, &lows, &closes, 14);
 
             let expected_plus_di = testutils::load_expected::<Option<f64>>(&format!(
@@ -79,5 +107,136 @@ mod tests {
                 symbol
             );
         }
+    }
+
+    #[test]
+    fn test_dmi_with_gap_requires_valid_predecessor_and_resumes() {
+        let highs = vec![
+            Some(10.0),
+            Some(12.0),
+            Some(14.0),
+            None,
+            Some(15.0),
+            Some(16.0),
+            Some(18.0),
+        ];
+        let lows = vec![
+            Some(8.0),
+            Some(9.0),
+            Some(11.0),
+            None,
+            Some(13.0),
+            Some(14.0),
+            Some(15.0),
+        ];
+        let closes = vec![
+            Some(9.0),
+            Some(11.0),
+            Some(13.0),
+            None,
+            Some(14.0),
+            Some(15.0),
+            Some(17.0),
+        ];
+
+        let (plus_di, minus_di) = dmi(&highs, &lows, &closes, 2);
+
+        assert_eq!(
+            plus_di,
+            vec![
+                None,
+                None,
+                Some(66.66666666666666),
+                None,
+                None,
+                Some(58.82352941176471),
+                Some(63.41463414634146),
+            ]
+        );
+        assert_eq!(
+            minus_di,
+            vec![None, None, Some(0.0), None, None, Some(0.0), Some(0.0)]
+        );
+    }
+
+    #[test]
+    fn test_dmi_requires_contiguous_seed_window() {
+        let highs = vec![
+            Some(10.0),
+            Some(12.0),
+            None,
+            Some(13.0),
+            Some(14.0),
+            Some(15.0),
+        ];
+        let lows = vec![
+            Some(8.0),
+            Some(9.0),
+            None,
+            Some(11.0),
+            Some(12.0),
+            Some(13.0),
+        ];
+        let closes = vec![
+            Some(9.0),
+            Some(11.0),
+            None,
+            Some(12.0),
+            Some(13.0),
+            Some(14.0),
+        ];
+
+        let (plus_di, minus_di) = dmi(&highs, &lows, &closes, 2);
+
+        assert_eq!(plus_di, vec![None, None, None, None, None, Some(50.0)]);
+        assert_eq!(minus_di, vec![None, None, None, None, None, Some(0.0)]);
+    }
+
+    #[test]
+    fn test_dmi_non_synchronous_predecessor_gap_does_not_advance_tr_state() {
+        let highs = vec![
+            Some(10.0),
+            None,
+            Some(13.0),
+            Some(14.0),
+            Some(15.0),
+            Some(16.0),
+        ];
+        let lows = vec![
+            Some(8.0),
+            None,
+            Some(11.0),
+            Some(12.0),
+            Some(13.0),
+            Some(14.0),
+        ];
+        let closes = vec![
+            Some(9.0),
+            Some(11.0),
+            Some(12.0),
+            Some(13.0),
+            Some(14.0),
+            Some(15.0),
+        ];
+
+        let (plus_di, minus_di) = dmi(&highs, &lows, &closes, 2);
+
+        assert_eq!(
+            plus_di,
+            vec![None, None, None, None, Some(50.0), Some(50.0),]
+        );
+        assert_eq!(minus_di, vec![None, None, None, None, Some(0.0), Some(0.0)]);
+    }
+
+    #[test]
+    fn test_dmi_length_mismatch_fails_closed() {
+        let highs = vec![Some(10.0), Some(12.0), Some(14.0)];
+        let lows = vec![Some(8.0), Some(9.0)];
+        let closes = vec![Some(9.0), Some(11.0), Some(13.0)];
+
+        let (plus_di, minus_di) = dmi(&highs, &lows, &closes, 2);
+
+        assert_eq!(plus_di, vec![None, None, None]);
+        assert_eq!(minus_di, vec![None, None, None]);
     }
 }
