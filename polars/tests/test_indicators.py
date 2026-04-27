@@ -284,41 +284,47 @@ def test_multi_input_integer_columns_are_cast_to_float() -> None:
     ])
 
 
-def test_single_input_null_values_raise_compute_error() -> None:
-    """Reject null values for single-input indicators with a Polars compute error."""
+@pytest.mark.parametrize("lazy", [False, True])
+def test_single_input_null_values_follow_core_gap_semantics(lazy: bool) -> None:
+    """Accept null values for single-input indicators."""
     # given
-    df = pl.DataFrame({"close": [1.0, None, 3.0]})
+    df = pl.DataFrame({"close": [1.0, None, 3.0, 4.0]})
 
-    # when / then
-    with pytest.raises(
-        pl.exceptions.ComputeError,
-        match="null values are not supported yet",
-    ):
-        df.select(ta.sma(pl.col("close"), period=2).alias("sma"))
+    # when
+    result = select_expr(df, ta.sma(pl.col("close"), period=2), "sma", lazy)
+
+    # then
+    assert_values_close(result.to_list(), [None, None, None, 3.5])
 
 
-def test_multi_input_null_values_raise_compute_error() -> None:
-    """Reject null values for multi-input indicators with a Polars compute error."""
+@pytest.mark.parametrize("lazy", [False, True])
+def test_multi_input_null_values_follow_core_gap_semantics(lazy: bool) -> None:
+    """Accept null values for multi-input indicators."""
     # given
     df = pl.DataFrame(
         {
-            "high": [11.0, 12.0, None],
-            "low": [1.0, 2.0, 3.0],
-            "close": [6.0, 7.0, 8.0],
+            "high": [5.0, 7.0, None, 10.0, 12.0],
+            "low": [1.0, 3.0, None, 6.0, 8.0],
+            "close": [4.0, 5.0, None, 8.0, 11.0],
         }
     )
 
-    # when / then
-    with pytest.raises(
-        pl.exceptions.ComputeError,
-        match="null values are not supported yet",
-    ):
-        df.select(
-            ta.stochf_percent_k(
-                pl.col("high"),
-                pl.col("low"),
-                pl.col("close"),
-                fastk_period=3,
-                fastd_period=2,
-            ).alias("value")
-        )
+    # when
+    result = select_expr(
+        df,
+        ta.stochf_percent_k(
+            pl.col("high"),
+            pl.col("low"),
+            pl.col("close"),
+            fastk_period=2,
+            fastd_period=2,
+        ),
+        "value",
+        lazy,
+    )
+
+    # then
+    assert_values_close(
+        result.to_list(),
+        [None, 66.66666666666666, None, None, 83.33333333333334],
+    )

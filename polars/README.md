@@ -45,6 +45,8 @@ result = df.select(
 )
 ```
 
+Null input values are accepted. Indicators preserve row alignment and emit nulls according to the core rolling-window and seed recovery rules.
+
 ## Ichimoku Notes
 
 - Standalone Ichimoku rolling-window lines such as `ichimoku_base_line` and `ichimoku_conversion_line` use `period`.
