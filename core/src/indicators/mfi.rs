@@ -1,5 +1,3 @@
-use crate::utils::rolling_sum_strict;
-
 pub fn mfi(
     highs: &[Option<f64>],
     lows: &[Option<f64>],
@@ -13,49 +11,66 @@ pub fn mfi(
     if len != lows.len()
         || len != closes.len()
         || len != volumes.len()
-        || len < period
+        || len <= period
         || period <= 1
     {
         return mfi;
     }
 
-    let typical_prices: Vec<Option<f64>> = highs
-        .iter()
-        .zip(lows.iter())
-        .zip(closes.iter())
-        .map(|((&high, &low), &close)| match (high, low, close) {
-            (Some(high), Some(low), Some(close)) => Some((high + low + close) / 3.0),
-            _ => None,
-        })
-        .collect();
-
-    let mut positive_money_flow = vec![None; highs.len()];
-    let mut negative_money_flow = vec![None; highs.len()];
-
-    for i in 1..highs.len() {
-        let (Some(prev_tp), Some(curr_tp), Some(volume)) =
-            (typical_prices[i - 1], typical_prices[i], volumes[i])
-        else {
-            continue;
-        };
-        let raw_money_flow = curr_tp * volume;
-
-        if curr_tp >= prev_tp {
-            positive_money_flow[i] = Some(raw_money_flow);
-            negative_money_flow[i] = Some(0.0);
-        } else {
-            positive_money_flow[i] = Some(0.0);
-            negative_money_flow[i] = Some(raw_money_flow);
+    let mut typical_prices = Vec::with_capacity(len);
+    let mut valid_typical_prices = Vec::with_capacity(len);
+    for i in 0..len {
+        match (highs[i], lows[i], closes[i]) {
+            (Some(high), Some(low), Some(close)) => {
+                typical_prices.push((high + low + close) / 3.0);
+                valid_typical_prices.push(true);
+            }
+            _ => {
+                typical_prices.push(0.0);
+                valid_typical_prices.push(false);
+            }
         }
     }
 
-    let positive_sums = rolling_sum_strict(&positive_money_flow, period);
-    let negative_sums = rolling_sum_strict(&negative_money_flow, period);
+    let money_flow_at = |i: usize| -> Option<(f64, f64)> {
+        if i == 0 || !valid_typical_prices[i - 1] || !valid_typical_prices[i] {
+            return None;
+        }
 
-    for i in 0..highs.len() {
-        let (Some(positive_sum), Some(negative_sum)) = (positive_sums[i], negative_sums[i]) else {
+        let prev_tp = typical_prices[i - 1];
+        let curr_tp = typical_prices[i];
+        let volume = volumes[i]?;
+        let raw_money_flow = curr_tp * volume;
+
+        if curr_tp >= prev_tp {
+            Some((raw_money_flow, 0.0))
+        } else {
+            Some((0.0, raw_money_flow))
+        }
+    };
+
+    let mut positive_sum = 0.0;
+    let mut negative_sum = 0.0;
+    let mut valid_count = 0usize;
+
+    for i in 1..len {
+        if let Some((positive, negative)) = money_flow_at(i) {
+            positive_sum += positive;
+            negative_sum += negative;
+            valid_count += 1;
+        }
+
+        if i > period {
+            if let Some((positive, negative)) = money_flow_at(i - period) {
+                positive_sum -= positive;
+                negative_sum -= negative;
+                valid_count -= 1;
+            }
+        }
+
+        if i < period || valid_count != period {
             continue;
-        };
+        }
 
         mfi[i] = Some(if negative_sum == 0.0 {
             100.0

@@ -11,33 +11,41 @@ pub fn cci(
         return result;
     }
 
-    let typical_prices: Vec<Option<f64>> = highs
-        .iter()
-        .zip(lows.iter())
-        .zip(closes.iter())
-        .map(|((&high, &low), &close)| match (high, low, close) {
-            (Some(high), Some(low), Some(close)) => Some((high + low + close) / 3.0),
-            _ => None,
-        })
-        .collect();
-
-    for i in period - 1..len {
-        let mut window = Vec::with_capacity(period);
-        let mut valid = true;
-        for value in &typical_prices[i + 1 - period..=i] {
-            if let Some(value) = value {
-                window.push(*value);
-            } else {
-                valid = false;
-                break;
+    let mut typical_prices = Vec::with_capacity(len);
+    let mut valid_typical_prices = Vec::with_capacity(len);
+    for i in 0..len {
+        match (highs[i], lows[i], closes[i]) {
+            (Some(high), Some(low), Some(close)) => {
+                typical_prices.push((high + low + close) / 3.0);
+                valid_typical_prices.push(true);
+            }
+            _ => {
+                typical_prices.push(0.0);
+                valid_typical_prices.push(false);
             }
         }
+    }
 
-        if !valid {
+    let mut sum = 0.0;
+    let mut valid_count = 0usize;
+
+    for i in 0..len {
+        if valid_typical_prices[i] {
+            sum += typical_prices[i];
+            valid_count += 1;
+        }
+
+        if i >= period && valid_typical_prices[i - period] {
+            sum -= typical_prices[i - period];
+            valid_count -= 1;
+        }
+
+        if i < period - 1 || valid_count != period {
             continue;
         }
 
-        let sma_tp = window.iter().sum::<f64>() / period as f64;
+        let sma_tp = sum / period as f64;
+        let window = &typical_prices[i + 1 - period..=i];
         let mean_deviation = window
             .iter()
             .map(|&value| (value - sma_tp).abs())
@@ -45,10 +53,7 @@ pub fn cci(
             / period as f64;
 
         if mean_deviation != 0.0 {
-            let current_tp = *window
-                .last()
-                .expect("validated CCI window must include the current typical price");
-            result[i] = Some((current_tp - sma_tp) / (0.015 * mean_deviation));
+            result[i] = Some((typical_prices[i] - sma_tp) / (0.015 * mean_deviation));
         }
     }
 

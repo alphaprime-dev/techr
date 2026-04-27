@@ -1,24 +1,36 @@
-use crate::utils::rolling_sum_strict;
-
 pub fn psl(closes: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
     let len = closes.len();
     let mut result = vec![None; len];
 
-    if len < period + 1 || period <= 1 {
+    if len <= period || period <= 1 {
         return result;
     }
 
-    let mut positive_changes = vec![None; len];
+    let mut positive_count = 0usize;
+    let mut valid_count = 0usize;
+
     for i in 1..len {
         if let (Some(current), Some(previous)) = (closes[i], closes[i - 1]) {
-            positive_changes[i] = Some(if current > previous { 1.0 } else { 0.0 });
+            valid_count += 1;
+            if current > previous {
+                positive_count += 1;
+            }
         }
-    }
 
-    let counts = rolling_sum_strict(&positive_changes, period);
-    for i in 0..len {
-        if let Some(count) = counts[i] {
-            result[i] = Some((count / period as f64) * 100.0);
+        if i > period {
+            let remove_index = i - period;
+            if let (Some(current), Some(previous)) =
+                (closes[remove_index], closes[remove_index - 1])
+            {
+                valid_count -= 1;
+                if current > previous {
+                    positive_count -= 1;
+                }
+            }
+        }
+
+        if i >= period && valid_count == period {
+            result[i] = Some((positive_count as f64 / period as f64) * 100.0);
         }
     }
 
