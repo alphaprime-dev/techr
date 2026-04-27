@@ -1,8 +1,8 @@
-use crate::indicators::rsi::rsi_dense;
+use crate::indicators::rsi::rsi;
 use crate::utils::{rolling_max_min, rolling_mean_strict};
 
 pub fn stochrsi(
-    closes: &[f64],
+    closes: &[Option<f64>],
     period_rsi: usize,
     period_k: usize,
     period_d: usize,
@@ -14,7 +14,7 @@ pub fn stochrsi(
         return (percent_k, vec![None; len]);
     }
 
-    let rsi_values = rsi_dense(closes, period_rsi);
+    let rsi_values = rsi(closes, period_rsi);
     let rsi_values_with_nan: Vec<f64> = rsi_values
         .iter()
         .map(|value| value.unwrap_or(f64::NAN))
@@ -64,7 +64,7 @@ mod tests {
     fn test_stochrsi() {
         let test_cases = vec!["005930", "TSLA"];
         for symbol in test_cases {
-            let closes = testutils::load_data(&format!("../data/{}.json", symbol), "c");
+            let closes = testutils::load_data_nullable(&format!("../data/{}.json", symbol), "c");
 
             let (percent_k, percent_d) = stochrsi(&closes, 14, 14, 3);
 
@@ -90,5 +90,47 @@ mod tests {
                 symbol
             );
         }
+    }
+
+    #[test]
+    fn test_stochrsi_gap_requires_full_valid_rsi_windows_to_resume() {
+        let closes = vec![
+            Some(1.0),
+            Some(2.0),
+            Some(3.0),
+            Some(2.0),
+            None,
+            Some(4.0),
+            Some(5.0),
+            Some(6.0),
+            Some(7.0),
+        ];
+
+        let (percent_k, percent_d) = stochrsi(&closes, 3, 2, 2);
+
+        assert_eq!(
+            round_vec(percent_k, 8),
+            round_vec(
+                vec![
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    Some(100.0),
+                    Some(100.0)
+                ],
+                8
+            )
+        );
+        assert_eq!(
+            round_vec(percent_d, 8),
+            round_vec(
+                vec![None, None, None, None, None, None, None, None, Some(100.0)],
+                8
+            )
+        );
     }
 }

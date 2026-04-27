@@ -1,8 +1,3 @@
-pub(crate) fn ema_dense(data: &[f64], period: usize) -> Vec<Option<f64>> {
-    let nullable = data.iter().copied().map(Some).collect::<Vec<_>>();
-    ema(&nullable, period)
-}
-
 /// Computes an exponential moving average over an aligned nullable series.
 ///
 /// The returned vector keeps the same length as the input and emits `None`
