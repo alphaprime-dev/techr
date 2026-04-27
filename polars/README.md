@@ -10,13 +10,11 @@ uv add techr
 
 ## Supported indicators
 
-- `sma`, `wma`, `ema`, `disparity`
-- `macd`, `macd_signal`, `macd_hist`
-- `bband_middle`, `bband_lower`, `bband_upper`
-- `stochf_percent_k`, `stochf_percent_d`
-- `stoch_percent_k`, `stoch_percent_d`
-- `ichimoku_base_line`, `ichimoku_conversion_line`
-- `ichimoku_leading_span_a`, `ichimoku_leading_span_b`, `ichimoku_lagging_span`
+- Price/trend: `sma`, `wma`, `ema`, `disparity`, `mom`, `roc`, `rsi`, `psl`
+- Bands/channels: `bband_middle`, `bband_lower`, `bband_upper`, `env_upper`, `env_middle`, `env_lower`, `pchan_upper`, `pchan_middle`, `pchan_lower`
+- Momentum/oscillators: `macd`, `macd_line`, `macd_signal`, `macd_hist`, `macd_histogram`, `ppo_line`, `ppo_signal`, `ppo_histogram`, `pvo_line`, `pvo_signal`, `pvo_histogram`, `sonar_line`, `sonar_signal`, `stochf_percent_k`, `stochf_percent_d`, `stoch_percent_k`, `stoch_percent_d`, `stochrsi_percent_k`, `stochrsi_percent_d`
+- High/low/volume indicators: `ad`, `adx`, `adxr`, `aroon_up`, `aroon_down`, `aroonosc`, `atr`, `cci`, `cmf`, `co`, `cv`, `dmi_plus`, `dmi_minus`, `efi`, `eom_line`, `eom_signal`, `erbear`, `erbull`, `massi_line`, `massi_signal`, `mfi`, `nvi_line`, `nvi_signal`, `obv_line`, `obv_signal`, `psar`, `pvi_line`, `pvi_signal`, `ultosc`, `vr`, `willr`
+- Ichimoku: `ichimoku_base_line`, `ichimoku_conversion_line`, `ichimoku_leading_span_a`, `ichimoku_leading_span_b`, `ichimoku_lagging_span`
 
 ## Usage
 

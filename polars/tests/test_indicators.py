@@ -59,16 +59,167 @@ def select_expr(df: pl.DataFrame, expr: pl.Expr, alias: str, lazy: bool) -> pl.S
 
 
 SeriesExprBuilder = Callable[[], pl.Expr]
+CASE_TOLERANCES = {
+    "ad": 1e-4,
+    "co": 1e-4,
+    "stochrsi_percent_d": 1e-4,
+    "stochrsi_percent_k": 1e-4,
+}
 
 # Indicators whose expected fixture length matches the input row count.
 CORE_EXPECTED_CASES: list[tuple[str, SeriesExprBuilder, str]] = [
+    (
+        "ad",
+        lambda: ta.ad(pl.col("high"), pl.col("low"), pl.col("close"), pl.col("volume")),
+        "ad",
+    ),
+    (
+        "adx",
+        lambda: ta.adx(
+            pl.col("high"),
+            pl.col("low"),
+            pl.col("close"),
+            dmi_period=14,
+            adx_period=14,
+        ),
+        "adx",
+    ),
+    (
+        "adxr",
+        lambda: ta.adxr(
+            pl.col("high"),
+            pl.col("low"),
+            pl.col("close"),
+            dmi_period=14,
+            adx_period=14,
+            adxr_period=14,
+        ),
+        "adxr",
+    ),
+    (
+        "aroon_up",
+        lambda: ta.aroon_up(pl.col("high"), pl.col("low"), period=25),
+        "aroon_up",
+    ),
+    (
+        "aroon_down",
+        lambda: ta.aroon_down(pl.col("high"), pl.col("low"), period=25),
+        "aroon_down",
+    ),
+    (
+        "aroonosc",
+        lambda: ta.aroonosc(pl.col("high"), pl.col("low"), period=25),
+        "aroonosc",
+    ),
+    (
+        "atr",
+        lambda: ta.atr(pl.col("high"), pl.col("low"), pl.col("close"), period=20),
+        "atr",
+    ),
     ("sma", lambda: ta.sma(pl.col("close"), period=20), "sma"),
     ("wma", lambda: ta.wma(pl.col("close"), period=20), "wma"),
     ("ema", lambda: ta.ema(pl.col("close"), period=20), "ema"),
     ("disparity", lambda: ta.disparity(pl.col("close"), period=20), "disparity"),
     (
+        "cci",
+        lambda: ta.cci(pl.col("high"), pl.col("low"), pl.col("close"), period=20),
+        "cci",
+    ),
+    (
+        "cmf",
+        lambda: ta.cmf(
+            pl.col("high"),
+            pl.col("low"),
+            pl.col("close"),
+            pl.col("volume"),
+            period=21,
+        ),
+        "cmf",
+    ),
+    (
+        "co",
+        lambda: ta.co(
+            pl.col("high"),
+            pl.col("low"),
+            pl.col("close"),
+            pl.col("volume"),
+            period_short=3,
+            period_long=10,
+        ),
+        "co",
+    ),
+    ("cv", lambda: ta.cv(pl.col("high"), pl.col("low"), period=10), "cv"),
+    (
+        "dmi_plus",
+        lambda: ta.dmi_plus(pl.col("high"), pl.col("low"), pl.col("close"), period=14),
+        "dmi_plus",
+    ),
+    (
+        "dmi_minus",
+        lambda: ta.dmi_minus(pl.col("high"), pl.col("low"), pl.col("close"), period=14),
+        "dmi_minus",
+    ),
+    (
+        "efi",
+        lambda: ta.efi(pl.col("close"), pl.col("volume"), period=14),
+        "efi",
+    ),
+    (
+        "env_upper",
+        lambda: ta.env_upper(pl.col("close"), period=20, shift_percentage=10.0),
+        "env_upper",
+    ),
+    (
+        "env_middle",
+        lambda: ta.env_middle(pl.col("close"), period=20, shift_percentage=10.0),
+        "sma",
+    ),
+    (
+        "env_lower",
+        lambda: ta.env_lower(pl.col("close"), period=20, shift_percentage=10.0),
+        "env_lower",
+    ),
+    (
+        "eom_line",
+        lambda: ta.eom_line(
+            pl.col("high"),
+            pl.col("low"),
+            pl.col("volume"),
+            period=14,
+            scale=10000.0,
+        ),
+        "eom_line",
+    ),
+    (
+        "eom_signal",
+        lambda: ta.eom_signal(
+            pl.col("high"),
+            pl.col("low"),
+            pl.col("volume"),
+            period=14,
+            signal_period=3,
+            scale=10000.0,
+        ),
+        "eom_signal",
+    ),
+    (
+        "erbear",
+        lambda: ta.erbear(pl.col("low"), pl.col("close"), period=13),
+        "erbear",
+    ),
+    (
+        "erbull",
+        lambda: ta.erbull(pl.col("high"), pl.col("close"), period=13),
+        "erbull",
+    ),
+    (
         "macd",
         lambda: ta.macd(pl.col("close"), fast_period=12, slow_period=26),
+        "macd_line",
+    ),
+    (
+        "macd_line",
+        lambda: ta.macd_line(pl.col("close"), fast_period=12, slow_period=26),
         "macd_line",
     ),
     (
@@ -91,6 +242,156 @@ CORE_EXPECTED_CASES: list[tuple[str, SeriesExprBuilder, str]] = [
         ),
         "macd_histogram",
     ),
+    (
+        "macd_histogram",
+        lambda: ta.macd_histogram(
+            pl.col("close"),
+            fast_period=12,
+            slow_period=26,
+            signal_period=9,
+        ),
+        "macd_histogram",
+    ),
+    (
+        "massi_line",
+        lambda: ta.massi_line(
+            pl.col("high"), pl.col("low"), period_ema=9, period_sum=25
+        ),
+        "massi_line",
+    ),
+    (
+        "massi_signal",
+        lambda: ta.massi_signal(
+            pl.col("high"),
+            pl.col("low"),
+            period_ema=9,
+            period_sum=25,
+            period_signal=9,
+        ),
+        "massi_signal",
+    ),
+    (
+        "mfi",
+        lambda: ta.mfi(
+            pl.col("high"),
+            pl.col("low"),
+            pl.col("close"),
+            pl.col("volume"),
+            period=14,
+        ),
+        "mfi",
+    ),
+    ("mom", lambda: ta.mom(pl.col("close"), period=10), "mom"),
+    (
+        "nvi_line",
+        lambda: ta.nvi_line(pl.col("close"), pl.col("volume")),
+        "nvi_line",
+    ),
+    (
+        "nvi_signal",
+        lambda: ta.nvi_signal(pl.col("close"), pl.col("volume"), signal_period=255),
+        "nvi_signal",
+    ),
+    (
+        "obv_line",
+        lambda: ta.obv_line(pl.col("close"), pl.col("volume")),
+        "obv_line",
+    ),
+    (
+        "obv_signal",
+        lambda: ta.obv_signal(pl.col("close"), pl.col("volume"), signal_period=9),
+        "obv_signal",
+    ),
+    (
+        "pchan_upper",
+        lambda: ta.pchan_upper(pl.col("high"), pl.col("low"), period=20),
+        "pchan_upper",
+    ),
+    (
+        "pchan_middle",
+        lambda: ta.pchan_middle(pl.col("high"), pl.col("low"), period=20),
+        "pchan_middle",
+    ),
+    (
+        "pchan_lower",
+        lambda: ta.pchan_lower(pl.col("high"), pl.col("low"), period=20),
+        "pchan_lower",
+    ),
+    (
+        "ppo_line",
+        lambda: ta.ppo_line(pl.col("close"), fast_period=12, slow_period=26),
+        "ppo_line",
+    ),
+    (
+        "ppo_signal",
+        lambda: ta.ppo_signal(
+            pl.col("close"),
+            fast_period=12,
+            slow_period=26,
+            signal_period=9,
+        ),
+        "ppo_signal",
+    ),
+    (
+        "ppo_histogram",
+        lambda: ta.ppo_histogram(
+            pl.col("close"),
+            fast_period=12,
+            slow_period=26,
+            signal_period=9,
+        ),
+        "ppo_histogram",
+    ),
+    (
+        "psar",
+        lambda: ta.psar(
+            pl.col("high"),
+            pl.col("low"),
+            pl.col("close"),
+            increment=0.02,
+            initial_acceleration_factor=0.02,
+            max_acceleration_factor=0.2,
+        ),
+        "psar",
+    ),
+    ("psl", lambda: ta.psl(pl.col("close"), period=12), "psl"),
+    (
+        "pvi_line",
+        lambda: ta.pvi_line(pl.col("close"), pl.col("volume")),
+        "pvi_line",
+    ),
+    (
+        "pvi_signal",
+        lambda: ta.pvi_signal(pl.col("close"), pl.col("volume"), signal_period=255),
+        "pvi_signal",
+    ),
+    (
+        "pvo_line",
+        lambda: ta.pvo_line(pl.col("volume"), fast_period=12, slow_period=26),
+        "pvo_line",
+    ),
+    (
+        "pvo_signal",
+        lambda: ta.pvo_signal(
+            pl.col("volume"),
+            fast_period=12,
+            slow_period=26,
+            signal_period=9,
+        ),
+        "pvo_signal",
+    ),
+    (
+        "pvo_histogram",
+        lambda: ta.pvo_histogram(
+            pl.col("volume"),
+            fast_period=12,
+            slow_period=26,
+            signal_period=9,
+        ),
+        "pvo_histogram",
+    ),
+    ("roc", lambda: ta.roc(pl.col("close"), period=20), "roc"),
+    ("rsi", lambda: ta.rsi(pl.col("close"), period=14), "rsi"),
     ("bband_middle", lambda: ta.bband_middle(pl.col("close"), period=20), "sma"),
     (
         "bband_lower",
@@ -163,6 +464,52 @@ CORE_EXPECTED_CASES: list[tuple[str, SeriesExprBuilder, str]] = [
         lambda: ta.ichimoku_lagging_span(pl.col("close"), base_line_period=26),
         "ichimoku_lagging_span",
     ),
+    (
+        "sonar_line",
+        lambda: ta.sonar_line(pl.col("close"), period=9, step=6),
+        "sonar_line",
+    ),
+    (
+        "sonar_signal",
+        lambda: ta.sonar_signal(pl.col("close"), period=9, step=6, signal_period=5),
+        "sonar_signal",
+    ),
+    (
+        "stochrsi_percent_k",
+        lambda: ta.stochrsi_percent_k(
+            pl.col("close"), period_rsi=14, period_k=14, period_d=3
+        ),
+        "stochrsi_K",
+    ),
+    (
+        "stochrsi_percent_d",
+        lambda: ta.stochrsi_percent_d(
+            pl.col("close"), period_rsi=14, period_k=14, period_d=3
+        ),
+        "stochrsi_D",
+    ),
+    (
+        "ultosc",
+        lambda: ta.ultosc(
+            pl.col("high"),
+            pl.col("low"),
+            pl.col("close"),
+            period_short=7,
+            period_medium=14,
+            period_long=28,
+        ),
+        "ultosc",
+    ),
+    (
+        "vr",
+        lambda: ta.vr(pl.col("close"), pl.col("volume"), period=20),
+        "vr",
+    ),
+    (
+        "willr",
+        lambda: ta.willr(pl.col("high"), pl.col("low"), pl.col("close"), period=14),
+        "willr",
+    ),
 ]
 
 # Leading spans are forward-projected in core fixtures, so Polars compares a
@@ -210,7 +557,11 @@ def test_indicator_matches_core_expected(
     result = select_expr(df, expr_builder(), name, lazy)
 
     # then
-    assert_values_close(result.to_list(), expected)
+    assert_values_close(
+        result.to_list(),
+        expected,
+        abs_tol=CASE_TOLERANCES.get(name, 1e-8),
+    )
 
 
 @pytest.mark.parametrize("symbol", SYMBOLS)
@@ -275,13 +626,16 @@ def test_multi_input_integer_columns_are_cast_to_float() -> None:
     ).get_column("value")
 
     # then
-    assert_values_close(result.to_list(), [
-        None,
-        None,
-        58.33333333,
-        58.33333333,
-        58.33333333,
-    ])
+    assert_values_close(
+        result.to_list(),
+        [
+            None,
+            None,
+            58.33333333,
+            58.33333333,
+            58.33333333,
+        ],
+    )
 
 
 @pytest.mark.parametrize("lazy", [False, True])
