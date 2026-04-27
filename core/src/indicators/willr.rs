@@ -1,10 +1,15 @@
 use crate::utils::rolling_max_min;
 
-pub fn willr(highs: &[f64], lows: &[f64], closes: &[f64], period: usize) -> Vec<Option<f64>> {
+pub fn willr(
+    highs: &[Option<f64>],
+    lows: &[Option<f64>],
+    closes: &[Option<f64>],
+    period: usize,
+) -> Vec<Option<f64>> {
     let len = closes.len();
     let mut result = vec![None; len];
 
-    if len < period {
+    if len != highs.len() || len != lows.len() || len < period || period == 0 {
         return result;
     }
 
@@ -15,11 +20,14 @@ pub fn willr(highs: &[f64], lows: &[f64], closes: &[f64], period: usize) -> Vec<
             continue;
         };
 
-        let cc = closes[i];
+        let Some(close) = closes[i] else {
+            continue;
+        };
+
         if max_high == min_low {
             result[i] = None;
         } else {
-            result[i] = Some(((max_high - cc) / (max_high - min_low)) * -100.0);
+            result[i] = Some(((max_high - close) / (max_high - min_low)) * -100.0);
         }
     }
 
@@ -36,9 +44,9 @@ mod tests {
     fn test_willr() {
         let test_cases = vec!["005930", "TSLA"];
         for symbol in test_cases {
-            let high = testutils::load_data(&format!("../data/{}.json", symbol), "h");
-            let low = testutils::load_data(&format!("../data/{}.json", symbol), "l");
-            let close = testutils::load_data(&format!("../data/{}.json", symbol), "c");
+            let high = testutils::load_data_nullable(&format!("../data/{}.json", symbol), "h");
+            let low = testutils::load_data_nullable(&format!("../data/{}.json", symbol), "l");
+            let close = testutils::load_data_nullable(&format!("../data/{}.json", symbol), "c");
             let result = willr(&high, &low, &close, 14);
             let expected = testutils::load_expected::<Option<f64>>(&format!(
                 "../data/expected/willr_{}.json",
@@ -52,5 +60,28 @@ mod tests {
                 symbol
             );
         }
+    }
+
+    #[test]
+    fn test_willr_gap_invalidates_window_until_full_recovery() {
+        let highs = vec![Some(5.0), Some(7.0), None, Some(10.0), Some(12.0)];
+        let lows = vec![Some(1.0), Some(3.0), None, Some(6.0), Some(8.0)];
+        let closes = vec![Some(4.0), Some(5.0), None, Some(8.0), Some(11.0)];
+
+        let result = round_vec(willr(&highs, &lows, &closes, 2), 8);
+
+        assert_eq!(
+            result,
+            round_vec(
+                vec![
+                    None,
+                    Some(-33.33333333333333),
+                    None,
+                    None,
+                    Some(-16.666666666666664)
+                ],
+                8
+            )
+        );
     }
 }

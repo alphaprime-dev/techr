@@ -15,23 +15,9 @@ pub fn stochrsi(
     }
 
     let rsi_values = rsi(closes, period_rsi);
-    let rsi_values_with_nan: Vec<f64> = rsi_values
-        .iter()
-        .map(|value| value.unwrap_or(f64::NAN))
-        .collect();
-    let (rolling_max, rolling_min) =
-        rolling_max_min(&rsi_values_with_nan, &rsi_values_with_nan, period_k);
+    let (rolling_max, rolling_min) = rolling_max_min(&rsi_values, &rsi_values, period_k);
 
     for i in (period_rsi + period_k - 1)..len {
-        let valid_values: Vec<f64> = rsi_values[i + 1 - period_k..=i]
-            .iter()
-            .filter_map(|&x| x)
-            .collect();
-
-        if valid_values.len() != period_k {
-            continue;
-        }
-
         let (Some(rsi), Some(rsi_max), Some(rsi_min)) =
             (rsi_values[i], rolling_max[i], rolling_min[i])
         else {

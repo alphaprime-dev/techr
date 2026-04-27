@@ -1,38 +1,40 @@
-pub fn psl(closes: &[f64], period: usize) -> Vec<Option<f64>> {
-    let mut psl = vec![None; closes.len()];
+pub fn psl(closes: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
     let len = closes.len();
+    let mut result = vec![None; len];
 
-    if len < period + 1 || period <= 1 {
-        return psl;
+    if len <= period || period <= 1 {
+        return result;
     }
 
-    let mut count = 0;
+    let mut positive_count = 0usize;
+    let mut valid_count = 0usize;
 
-    // Count initial positive price changes
-    for i in 1..period {
-        if closes[i] > closes[i - 1] {
-            count += 1;
+    for i in 1..len {
+        if let (Some(current), Some(previous)) = (closes[i], closes[i - 1]) {
+            valid_count += 1;
+            if current > previous {
+                positive_count += 1;
+            }
+        }
+
+        if i > period {
+            let remove_index = i - period;
+            if let (Some(current), Some(previous)) =
+                (closes[remove_index], closes[remove_index - 1])
+            {
+                valid_count -= 1;
+                if current > previous {
+                    positive_count -= 1;
+                }
+            }
+        }
+
+        if i >= period && valid_count == period {
+            result[i] = Some((positive_count as f64 / period as f64) * 100.0);
         }
     }
 
-    // Calculate PSL for the rest of the series
-    for i in period..len {
-        // Add current price change to the count
-        if closes[i] > closes[i - 1] {
-            count += 1;
-        }
-
-        // Calculate PSL value
-        let psl_value = (count as f64 / period as f64) * 100.0;
-        psl[i] = Some(psl_value);
-
-        // Remove oldest price change from the count
-        if closes[i - period + 1] > closes[i - period] {
-            count -= 1;
-        }
-    }
-
-    psl
+    result
 }
 
 #[cfg(test)]
@@ -45,7 +47,7 @@ mod tests {
     fn test_psl() {
         let test_cases = vec!["005930", "TSLA"];
         for symbol in test_cases {
-            let close = testutils::load_data(&format!("../data/{}.json", symbol), "c");
+            let close = testutils::load_data_nullable(&format!("../data/{}.json", symbol), "c");
             let result = psl(&close, 12);
             let expected = testutils::load_expected::<Option<f64>>(&format!(
                 "../data/expected/psl_{}.json",
@@ -59,5 +61,25 @@ mod tests {
                 symbol
             );
         }
+    }
+
+    #[test]
+    fn test_psl_gap_invalidates_until_full_change_window_recovers() {
+        let closes = vec![
+            Some(1.0),
+            Some(2.0),
+            Some(3.0),
+            None,
+            Some(5.0),
+            Some(4.0),
+            Some(6.0),
+        ];
+
+        let result = psl(&closes, 2);
+
+        assert_eq!(
+            result,
+            vec![None, None, Some(100.0), None, None, None, Some(50.0)]
+        );
     }
 }
