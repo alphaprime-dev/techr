@@ -69,16 +69,9 @@ struct IchimokuLaggingSpanKwargs {
     base_line_period: u32,
 }
 
-fn series_to_f64_vec(series: &Series) -> PolarsResult<Vec<f64>> {
+fn series_to_f64_vec(series: &Series) -> PolarsResult<Vec<Option<f64>>> {
     let casted = series.cast(&DataType::Float64)?;
-    let values = casted.f64()?.to_vec_null_aware();
-    if let Some(values) = values.left() {
-        Ok(values)
-    } else {
-        Err(PolarsError::ComputeError(
-            "null values are not supported yet".into(),
-        ))
-    }
+    Ok(casted.f64()?.to_vec())
 }
 
 fn option_vec_to_series(values: Vec<Option<f64>>) -> Series {
