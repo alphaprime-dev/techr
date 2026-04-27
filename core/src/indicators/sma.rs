@@ -1,5 +1,4 @@
 use crate::utils::rolling_mean_strict;
-
 /// Computes a simple moving average over an aligned nullable series.
 ///
 /// The returned vector keeps the same length as the input and emits `None`
@@ -7,8 +6,6 @@ use crate::utils::rolling_mean_strict;
 pub fn sma(data: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
     rolling_mean_strict(data, period)
 }
-
-pub(crate) use sma as sma_aligned;
 
 #[cfg(test)]
 mod tests {

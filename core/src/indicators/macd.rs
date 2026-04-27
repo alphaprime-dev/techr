@@ -1,13 +1,13 @@
-use crate::indicators::ema::{ema_aligned, ema_dense};
+use crate::indicators::ema::ema;
 
 pub fn macd(
-    data: &[f64],
+    data: &[Option<f64>],
     fast_period: usize,
     slow_period: usize,
     signal_period: usize,
 ) -> (Vec<Option<f64>>, Vec<Option<f64>>, Vec<Option<f64>>) {
     let macd_line = macd_line(data, fast_period, slow_period);
-    let signal_line = ema_aligned(&macd_line, signal_period);
+    let signal_line = ema(&macd_line, signal_period);
     let histogram = macd_line
         .iter()
         .zip(signal_line.iter())
@@ -21,13 +21,13 @@ pub fn macd(
 }
 
 pub fn macd_histogram(
-    data: &[f64],
+    data: &[Option<f64>],
     fast_period: usize,
     slow_period: usize,
     signal_period: usize,
 ) -> Vec<Option<f64>> {
     let macd_line = macd_line(data, fast_period, slow_period);
-    let signal_line = ema_aligned(&macd_line, signal_period);
+    let signal_line = ema(&macd_line, signal_period);
 
     macd_line
         .iter()
@@ -40,24 +40,24 @@ pub fn macd_histogram(
 }
 
 pub fn macd_signal(
-    data: &[f64],
+    data: &[Option<f64>],
     fast_period: usize,
     slow_period: usize,
     signal_period: usize,
 ) -> Vec<Option<f64>> {
     let macd_line = macd_line(data, fast_period, slow_period);
-    ema_aligned(&macd_line, signal_period)
+    ema(&macd_line, signal_period)
 }
 
-pub fn macd_line(data: &[f64], fast_period: usize, slow_period: usize) -> Vec<Option<f64>> {
+pub fn macd_line(data: &[Option<f64>], fast_period: usize, slow_period: usize) -> Vec<Option<f64>> {
     let mut macd_line = vec![None; data.len()];
 
     if data.len() < slow_period || fast_period >= slow_period {
         return macd_line;
     }
 
-    let fast_ema = ema_dense(data, fast_period);
-    let slow_ema = ema_dense(data, slow_period);
+    let fast_ema = ema(data, fast_period);
+    let slow_ema = ema(data, slow_period);
 
     for i in (slow_period - 1)..data.len() {
         if let (Some(fast), Some(slow)) = (fast_ema[i], slow_ema[i]) {
@@ -82,7 +82,10 @@ mod tests {
 
         // When
         for symbol in test_cases {
-            let input = testutils::load_data(&format!("../data/{}.json", symbol), "c");
+            let input = testutils::load_data(&format!("../data/{}.json", symbol), "c")
+                .into_iter()
+                .map(Some)
+                .collect::<Vec<_>>();
             let (macd_line, signal_line, histogram) = macd(&input, 12, 26, 9);
 
             let expected_macd = testutils::load_expected::<Option<f64>>(&format!(
@@ -118,5 +121,62 @@ mod tests {
                 symbol
             );
         }
+    }
+
+    #[test]
+    fn test_macd_signal_follows_base_ema_contract_across_gaps() {
+        let input = vec![
+            Some(1.0),
+            Some(2.0),
+            Some(3.0),
+            Some(4.0),
+            None,
+            Some(5.0),
+            Some(6.0),
+            Some(7.0),
+        ];
+
+        let (line, signal, histogram) = macd(&input, 2, 3, 2);
+
+        assert_eq!(
+            line,
+            vec![
+                None,
+                None,
+                Some(0.5),
+                Some(0.5),
+                None,
+                Some(0.5),
+                Some(0.5),
+                Some(0.5),
+            ]
+        );
+        assert_eq!(
+            signal,
+            vec![
+                None,
+                None,
+                None,
+                Some(0.5),
+                None,
+                Some(0.5),
+                Some(0.5),
+                Some(0.5),
+            ]
+        );
+        assert_eq!(signal, ema(&line, 2));
+        assert_eq!(
+            histogram,
+            vec![
+                None,
+                None,
+                None,
+                Some(0.0),
+                None,
+                Some(0.0),
+                Some(0.0),
+                Some(0.0),
+            ]
+        );
     }
 }

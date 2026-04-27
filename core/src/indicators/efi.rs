@@ -1,4 +1,4 @@
-use crate::indicators::ema::ema_aligned;
+use crate::indicators::ema::ema;
 
 pub fn efi(closes: &[Option<f64>], volumes: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
     let len = closes.len();
@@ -20,7 +20,7 @@ pub fn efi(closes: &[Option<f64>], volumes: &[Option<f64>], period: usize) -> Ve
     if period == 1 {
         efi = force;
     } else {
-        efi = ema_aligned(&force, period);
+        efi = ema(&force, period);
     }
 
     efi

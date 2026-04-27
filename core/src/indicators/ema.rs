@@ -47,9 +47,6 @@ pub fn ema(data: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
 
     result
 }
-
-pub(crate) use ema as ema_aligned;
-
 #[cfg(test)]
 mod tests {
     use super::*;

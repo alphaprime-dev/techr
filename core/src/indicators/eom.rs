@@ -1,4 +1,4 @@
-use crate::indicators::sma::sma_aligned;
+use crate::indicators::sma::sma;
 
 pub fn eom(
     highs: &[Option<f64>],
@@ -9,7 +9,7 @@ pub fn eom(
     scale: f64,
 ) -> (Vec<Option<f64>>, Vec<Option<f64>>) {
     let eom_line = eom_line(highs, lows, volumes, period, scale);
-    let signal = sma_aligned(&eom_line, signal_period);
+    let signal = sma(&eom_line, signal_period);
 
     (eom_line, signal)
 }
@@ -23,7 +23,7 @@ pub fn eom_signal(
     scale: f64,
 ) -> Vec<Option<f64>> {
     let eom_line = eom_line(highs, lows, volumes, period, scale);
-    sma_aligned(&eom_line, signal_period)
+    sma(&eom_line, signal_period)
 }
 
 pub fn eom_line(
@@ -63,7 +63,7 @@ pub fn eom_line(
         }
     }
 
-    sma_aligned(&eom_values, period)
+    sma(&eom_values, period)
 }
 
 #[cfg(test)]

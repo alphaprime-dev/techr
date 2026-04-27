@@ -1,13 +1,13 @@
-use crate::indicators::ema::{ema_aligned, ema_dense};
+use crate::indicators::ema::ema;
 
 pub fn pvo(
-    data: &[f64],
+    data: &[Option<f64>],
     fast_period: usize,
     slow_period: usize,
     signal_period: usize,
 ) -> (Vec<Option<f64>>, Vec<Option<f64>>, Vec<Option<f64>>) {
     let pvo_line = pvo_line(data, fast_period, slow_period);
-    let signal_line = ema_aligned(&pvo_line, signal_period);
+    let signal_line = ema(&pvo_line, signal_period);
     let histogram = pvo_line
         .iter()
         .zip(signal_line.iter())
@@ -21,13 +21,13 @@ pub fn pvo(
 }
 
 pub fn pvo_histogram(
-    data: &[f64],
+    data: &[Option<f64>],
     fast_period: usize,
     slow_period: usize,
     signal_period: usize,
 ) -> Vec<Option<f64>> {
     let pvo_line = pvo_line(data, fast_period, slow_period);
-    let signal_line = ema_aligned(&pvo_line, signal_period);
+    let signal_line = ema(&pvo_line, signal_period);
     pvo_line
         .iter()
         .zip(signal_line.iter())
@@ -39,24 +39,24 @@ pub fn pvo_histogram(
 }
 
 pub fn pvo_signal(
-    data: &[f64],
+    data: &[Option<f64>],
     fast_period: usize,
     slow_period: usize,
     signal_period: usize,
 ) -> Vec<Option<f64>> {
     let pvo_line = pvo_line(data, fast_period, slow_period);
-    ema_aligned(&pvo_line, signal_period)
+    ema(&pvo_line, signal_period)
 }
 
-pub fn pvo_line(data: &[f64], fast_period: usize, slow_period: usize) -> Vec<Option<f64>> {
+pub fn pvo_line(data: &[Option<f64>], fast_period: usize, slow_period: usize) -> Vec<Option<f64>> {
     let mut pvo_line = vec![None; data.len()];
 
     if data.len() < slow_period || fast_period >= slow_period {
         return pvo_line;
     }
 
-    let fast_ema = ema_dense(data, fast_period);
-    let slow_ema = ema_dense(data, slow_period);
+    let fast_ema = ema(data, fast_period);
+    let slow_ema = ema(data, slow_period);
 
     for i in (slow_period - 1)..data.len() {
         if let (Some(fast), Some(slow)) = (fast_ema[i], slow_ema[i]) {
@@ -83,7 +83,10 @@ mod tests {
 
         // When
         for symbol in test_cases {
-            let input = testutils::load_data(&format!("../data/{}.json", symbol), "v");
+            let input = testutils::load_data(&format!("../data/{}.json", symbol), "v")
+                .into_iter()
+                .map(Some)
+                .collect::<Vec<_>>();
             let (pvo_line, signal_line, histogram) = pvo(&input, 12, 26, 9);
 
             let expected_pvo = testutils::load_expected::<Option<f64>>(&format!(
@@ -119,5 +122,65 @@ mod tests {
                 symbol
             );
         }
+    }
+
+    #[test]
+    fn test_pvo_signal_follows_base_ema_contract_across_gaps() {
+        let input = vec![
+            Some(10.0),
+            Some(11.0),
+            Some(12.0),
+            Some(13.0),
+            None,
+            Some(14.0),
+            Some(15.0),
+            Some(16.0),
+        ];
+
+        let (line, signal, histogram) = pvo(&input, 2, 3, 2);
+
+        assert!(line[3].is_some());
+        assert_eq!(line[4], None);
+        assert!(line[5].is_some());
+        assert!(line[6].is_some());
+
+        assert!(signal[3].is_some());
+        assert_eq!(signal[4], None);
+        assert_eq!(signal, ema(&line, 2));
+        assert_eq!(
+            round_vec(signal.clone(), 8),
+            round_vec(
+                vec![
+                    None,
+                    None,
+                    None,
+                    Some(4.356060606060606),
+                    None,
+                    Some(4.016122766122766),
+                    Some(3.7196599696599697),
+                    Some(3.4621088787755454),
+                ],
+                8,
+            )
+        );
+
+        assert!(histogram[3].is_some());
+        assert_eq!(histogram[4], None);
+        assert_eq!(
+            round_vec(histogram, 8),
+            round_vec(
+                vec![
+                    None,
+                    None,
+                    None,
+                    Some(-0.189393939393939),
+                    None,
+                    Some(-0.16996891996891972),
+                    Some(-0.14823139823139803),
+                    Some(-0.12877554544221196),
+                ],
+                8,
+            )
+        );
     }
 }
