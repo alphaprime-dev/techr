@@ -77,7 +77,6 @@ __all__ = [
     "stochf_percent_k",
     "stochrsi_percent_d",
     "stochrsi_percent_k",
-    "trix",
     "trix_line",
     "trix_signal",
     "ultosc",
@@ -705,10 +704,6 @@ def roc(close: IntoExpr, *, period: int) -> pl.Expr:
 
 def rsi(expr: IntoExpr, *, period: int) -> pl.Expr:
     return _register("rsi", [expr], {"period": period})
-
-
-def trix(expr: IntoExpr, *, period: int) -> pl.Expr:
-    return _register("trix", [expr], {"period": period})
 
 
 def trix_line(expr: IntoExpr, *, period: int) -> pl.Expr:
