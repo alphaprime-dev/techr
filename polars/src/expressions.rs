@@ -147,6 +147,12 @@ struct SonarSignalKwargs {
 }
 
 #[derive(Deserialize)]
+struct PeriodSignalKwargs {
+    period: u32,
+    signal_period: u32,
+}
+
+#[derive(Deserialize)]
 struct StochRsiKwargs {
     period_rsi: u32,
     period_k: u32,
@@ -870,6 +876,34 @@ fn rsi(inputs: &[Series], kwargs: PeriodKwargs) -> PolarsResult<Series> {
     Ok(option_vec_to_series(core::rsi(
         &input,
         kwargs.period as usize,
+    )))
+}
+
+#[polars_expr(output_type=Float64)]
+fn trix(inputs: &[Series], kwargs: PeriodKwargs) -> PolarsResult<Series> {
+    let input = series_to_f64_vec(&inputs[0])?;
+    Ok(option_vec_to_series(core::trix_line(
+        &input,
+        kwargs.period as usize,
+    )))
+}
+
+#[polars_expr(output_type=Float64)]
+fn trix_line(inputs: &[Series], kwargs: PeriodKwargs) -> PolarsResult<Series> {
+    let input = series_to_f64_vec(&inputs[0])?;
+    Ok(option_vec_to_series(core::trix_line(
+        &input,
+        kwargs.period as usize,
+    )))
+}
+
+#[polars_expr(output_type=Float64)]
+fn trix_signal(inputs: &[Series], kwargs: PeriodSignalKwargs) -> PolarsResult<Series> {
+    let input = series_to_f64_vec(&inputs[0])?;
+    Ok(option_vec_to_series(core::trix_signal(
+        &input,
+        kwargs.period as usize,
+        kwargs.signal_period as usize,
     )))
 }
 

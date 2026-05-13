@@ -474,6 +474,13 @@ CORE_EXPECTED_CASES: list[tuple[str, SeriesExprBuilder, str]] = [
         lambda: ta.sonar_signal(pl.col("close"), period=9, step=6, signal_period=5),
         "sonar_signal",
     ),
+    ("trix", lambda: ta.trix(pl.col("close"), period=12), "trix_line"),
+    ("trix_line", lambda: ta.trix_line(pl.col("close"), period=12), "trix_line"),
+    (
+        "trix_signal",
+        lambda: ta.trix_signal(pl.col("close"), period=12, signal_period=9),
+        "trix_signal",
+    ),
     (
         "stochrsi_percent_k",
         lambda: ta.stochrsi_percent_k(
