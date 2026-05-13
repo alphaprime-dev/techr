@@ -48,8 +48,10 @@ mod tests {
 
     #[test]
     fn test_trix() {
+        // Given
         let test_cases = vec!["005930", "TSLA"];
 
+        // When
         for symbol in test_cases {
             let input = testutils::load_data(&format!("../data/{}.json", symbol), "c")
                 .into_iter()
@@ -66,6 +68,7 @@ mod tests {
                 symbol
             ));
 
+            // Then
             assert_eq!(
                 round_vec(line, 8),
                 round_vec(expected_line, 8),
@@ -83,6 +86,7 @@ mod tests {
 
     #[test]
     fn test_trix_matches_composed_ema_across_gaps() {
+        // Given
         let input = vec![
             Some(1.0),
             Some(2.0),
@@ -96,6 +100,7 @@ mod tests {
             Some(9.0),
         ];
 
+        // When
         let line = trix_line(&input, 2);
         let single = ema(&input, 2);
         let double = ema(&single, 2);
@@ -117,11 +122,13 @@ mod tests {
             })
             .collect::<Vec<_>>();
 
+        // Then
         assert_eq!(round_vec(line, 8), round_vec(expected, 8));
     }
 
     #[test]
     fn test_trix_signal_follows_base_ema_contract_across_gaps() {
+        // Given
         let input = vec![
             Some(1.0),
             Some(2.0),
@@ -135,18 +142,23 @@ mod tests {
             Some(9.0),
         ];
 
+        // When
         let (line, signal) = trix(&input, 2, 2);
 
+        // Then
         assert_eq!(signal, ema(&line, 2));
         assert_eq!(signal, trix_signal(&input, 2, 2));
     }
 
     #[test]
     fn test_trix_returns_none_when_previous_triple_ema_is_zero() {
+        // Given
         let input = vec![Some(0.0), Some(0.0), Some(1.0), Some(2.0)];
 
+        // When
         let line = trix_line(&input, 1);
 
+        // Then
         assert_eq!(line, vec![None, None, None, Some(100.0)]);
     }
 }
