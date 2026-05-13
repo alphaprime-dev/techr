@@ -1,6 +1,6 @@
 [package]
 name = "polars_techr"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2021"
 description = "Polars expression plugins for techr indicators"
 license = "MIT"
