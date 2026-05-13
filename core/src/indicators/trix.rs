@@ -1,123 +1,42 @@
-struct EmaState {
-    period: usize,
-    alpha: f64,
-    seeded_count: usize,
-    seed_sum: f64,
-    value: Option<f64>,
-}
-
-impl EmaState {
-    fn new(period: usize) -> Self {
-        let alpha = if period == 0 {
-            0.0
-        } else {
-            2.0 / (period as f64 + 1.0)
-        };
-
-        Self {
-            period,
-            alpha,
-            seeded_count: 0,
-            seed_sum: 0.0,
-            value: None,
-        }
-    }
-
-    fn update(&mut self, item: Option<f64>) -> Option<f64> {
-        if self.period == 0 {
-            return None;
-        }
-
-        let Some(value) = item else {
-            if self.value.is_none() {
-                self.seeded_count = 0;
-                self.seed_sum = 0.0;
-            }
-            return None;
-        };
-
-        if let Some(current) = self.value {
-            let next = self.alpha * value + (1.0 - self.alpha) * current;
-            self.value = Some(next);
-            return Some(next);
-        }
-
-        self.seed_sum += value;
-        self.seeded_count += 1;
-        if self.seeded_count == self.period {
-            let initial = self.seed_sum / self.period as f64;
-            self.value = Some(initial);
-            return Some(initial);
-        }
-
-        None
-    }
-}
+use crate::indicators::ema::ema;
 
 pub fn trix(
     data: &[Option<f64>],
     period: usize,
     signal_period: usize,
 ) -> (Vec<Option<f64>>, Vec<Option<f64>>) {
-    let len = data.len();
-    let mut line = Vec::with_capacity(len);
-    let mut signal = Vec::with_capacity(len);
-
-    let mut ema = EmaState::new(period);
-    let mut double_ema = EmaState::new(period);
-    let mut triple_ema = EmaState::new(period);
-    let mut signal_ema = EmaState::new(signal_period);
-    let mut previous_triple_ema = None;
-
-    for &value in data {
-        let current_ema = ema.update(value);
-        let current_double_ema = double_ema.update(current_ema);
-        let current_triple_ema = triple_ema.update(current_double_ema);
-        let current_line = match (current_triple_ema, previous_triple_ema) {
-            (Some(current), Some(previous)) if previous != 0.0 => {
-                Some((current - previous) * 100.0 / previous)
-            }
-            _ => None,
-        };
-
-        line.push(current_line);
-        signal.push(signal_ema.update(current_line));
-        previous_triple_ema = current_triple_ema;
-    }
+    let line = trix_line(data, period);
+    let signal = ema(&line, signal_period);
 
     (line, signal)
 }
 
 pub fn trix_line(data: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
-    let len = data.len();
-    let mut line = Vec::with_capacity(len);
+    let ema_values = ema(data, period);
+    let double_ema = ema(&ema_values, period);
+    let triple_ema = ema(&double_ema, period);
 
-    let mut ema = EmaState::new(period);
-    let mut double_ema = EmaState::new(period);
-    let mut triple_ema = EmaState::new(period);
-    let mut previous_triple_ema = None;
-
-    for &value in data {
-        let current_ema = ema.update(value);
-        let current_double_ema = double_ema.update(current_ema);
-        let current_triple_ema = triple_ema.update(current_double_ema);
-        let current_line = match (current_triple_ema, previous_triple_ema) {
-            (Some(current), Some(previous)) if previous != 0.0 => {
-                Some((current - previous) * 100.0 / previous)
+    triple_ema
+        .iter()
+        .enumerate()
+        .map(|(idx, &current)| {
+            if idx == 0 {
+                return None;
             }
-            _ => None,
-        };
 
-        line.push(current_line);
-        previous_triple_ema = current_triple_ema;
-    }
-
-    line
+            match (current, triple_ema[idx - 1]) {
+                (Some(current), Some(previous)) if previous != 0.0 => {
+                    Some((current - previous) * 100.0 / previous)
+                }
+                _ => None,
+            }
+        })
+        .collect()
 }
 
 pub fn trix_signal(data: &[Option<f64>], period: usize, signal_period: usize) -> Vec<Option<f64>> {
-    let (_, signal) = trix(data, period, signal_period);
-    signal
+    let line = trix_line(data, period);
+    ema(&line, signal_period)
 }
 
 #[cfg(test)]
