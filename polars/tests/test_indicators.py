@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Callable
+from typing import Callable, cast
 
 import polars as pl
 import pytest
@@ -51,11 +51,10 @@ def assert_values_close(
 
 
 def select_expr(df: pl.DataFrame, expr: pl.Expr, alias: str, lazy: bool) -> pl.Series:
-    query = df.lazy() if lazy else df
-    result = query.select(expr.alias(alias))
     if lazy:
-        result = result.collect()
-    return result.get_column(alias)
+        result = cast(pl.DataFrame, df.lazy().select(expr.alias(alias)).collect())
+        return result.get_column(alias)
+    return df.select(expr.alias(alias)).get_column(alias)
 
 
 SeriesExprBuilder = Callable[[], pl.Expr]
@@ -655,6 +654,63 @@ def test_single_input_null_values_follow_core_gap_semantics(lazy: bool) -> None:
 
     # then
     assert_values_close(result.to_list(), [None, None, None, 3.5])
+
+
+@pytest.mark.parametrize("lazy", [False, True])
+def test_rsi_signal_matches_ema_of_rsi(lazy: bool) -> None:
+    """RSI signal is the EMA of the RSI line."""
+    # given
+    df = load_ohlcv("TSLA")
+
+    # when
+    signal = select_expr(
+        df,
+        ta.rsi_signal(pl.col("close"), period=14, signal_period=9),
+        "signal",
+        lazy,
+    )
+    expected = select_expr(
+        df,
+        ta.ema(ta.rsi(pl.col("close"), period=14), period=9),
+        "expected",
+        lazy,
+    )
+
+    # then
+    assert_values_close(signal.to_list(), expected.to_list())
+
+
+@pytest.mark.parametrize("lazy", [False, True])
+def test_cci_signal_matches_ema_of_cci(lazy: bool) -> None:
+    """CCI signal is the EMA of the CCI line."""
+    # given
+    df = load_ohlcv("TSLA")
+
+    # when
+    signal = select_expr(
+        df,
+        ta.cci_signal(
+            pl.col("high"),
+            pl.col("low"),
+            pl.col("close"),
+            period=20,
+            signal_period=9,
+        ),
+        "signal",
+        lazy,
+    )
+    expected = select_expr(
+        df,
+        ta.ema(
+            ta.cci(pl.col("high"), pl.col("low"), pl.col("close"), period=20),
+            period=9,
+        ),
+        "expected",
+        lazy,
+    )
+
+    # then
+    assert_values_close(signal.to_list(), expected.to_list())
 
 
 @pytest.mark.parametrize("lazy", [False, True])

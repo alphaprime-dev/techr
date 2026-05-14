@@ -1,3 +1,5 @@
+use crate::indicators::ema::ema;
+
 pub fn cci(
     highs: &[Option<f64>],
     lows: &[Option<f64>],
@@ -60,6 +62,17 @@ pub fn cci(
     result
 }
 
+pub fn cci_signal(
+    highs: &[Option<f64>],
+    lows: &[Option<f64>],
+    closes: &[Option<f64>],
+    period: usize,
+    signal_period: usize,
+) -> Vec<Option<f64>> {
+    let line = cci(highs, lows, closes, period);
+    ema(&line, signal_period)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -109,5 +122,31 @@ mod tests {
                 8
             )
         );
+    }
+
+    #[test]
+    fn test_cci_signal_follows_base_ema_contract() {
+        let highs = vec![
+            Some(4.0),
+            Some(6.0),
+            None,
+            Some(10.0),
+            Some(12.0),
+            Some(14.0),
+        ];
+        let lows = vec![Some(2.0), Some(2.0), None, Some(6.0), Some(8.0), Some(10.0)];
+        let closes = vec![
+            Some(3.0),
+            Some(4.0),
+            None,
+            Some(9.0),
+            Some(11.0),
+            Some(12.0),
+        ];
+
+        let line = cci(&highs, &lows, &closes, 2);
+        let signal = cci_signal(&highs, &lows, &closes, 2, 2);
+
+        assert_eq!(signal, ema(&line, 2));
     }
 }

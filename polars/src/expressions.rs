@@ -22,6 +22,12 @@ struct PeriodKwargs {
 }
 
 #[derive(Deserialize)]
+struct PeriodSignalKwargs {
+    period: u32,
+    signal_period: u32,
+}
+
+#[derive(Deserialize)]
 struct BBandKwargs {
     period: u32,
     sigma: f64,
@@ -143,12 +149,6 @@ struct SonarLineKwargs {
 struct SonarSignalKwargs {
     period: u32,
     step: u32,
-    signal_period: u32,
-}
-
-#[derive(Deserialize)]
-struct PeriodSignalKwargs {
-    period: u32,
     signal_period: u32,
 }
 
@@ -500,6 +500,20 @@ fn cci(inputs: &[Series], kwargs: PeriodKwargs) -> PolarsResult<Series> {
         &lows,
         &closes,
         kwargs.period as usize,
+    )))
+}
+
+#[polars_expr(output_type=Float64)]
+fn cci_signal(inputs: &[Series], kwargs: PeriodSignalKwargs) -> PolarsResult<Series> {
+    let highs = series_to_f64_vec(&inputs[0])?;
+    let lows = series_to_f64_vec(&inputs[1])?;
+    let closes = series_to_f64_vec(&inputs[2])?;
+    Ok(option_vec_to_series(core::cci_signal(
+        &highs,
+        &lows,
+        &closes,
+        kwargs.period as usize,
+        kwargs.signal_period as usize,
     )))
 }
 
@@ -876,6 +890,16 @@ fn rsi(inputs: &[Series], kwargs: PeriodKwargs) -> PolarsResult<Series> {
     Ok(option_vec_to_series(core::rsi(
         &input,
         kwargs.period as usize,
+    )))
+}
+
+#[polars_expr(output_type=Float64)]
+fn rsi_signal(inputs: &[Series], kwargs: PeriodSignalKwargs) -> PolarsResult<Series> {
+    let input = series_to_f64_vec(&inputs[0])?;
+    Ok(option_vec_to_series(core::rsi_signal(
+        &input,
+        kwargs.period as usize,
+        kwargs.signal_period as usize,
     )))
 }
 

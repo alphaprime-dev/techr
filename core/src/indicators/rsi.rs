@@ -1,3 +1,5 @@
+use crate::indicators::ema::ema;
+
 pub fn rsi(data: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
     let mut rsi = vec![None; data.len()];
 
@@ -57,6 +59,11 @@ pub fn rsi(data: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
     }
 
     rsi
+}
+
+pub fn rsi_signal(data: &[Option<f64>], period: usize, signal_period: usize) -> Vec<Option<f64>> {
+    let line = rsi(data, period);
+    ema(&line, signal_period)
 }
 
 #[cfg(test)]
@@ -134,5 +141,24 @@ mod tests {
             result,
             vec![None, None, None, None, None, None, Some(66.66666666666666)]
         );
+    }
+
+    #[test]
+    fn test_rsi_signal_follows_base_ema_contract() {
+        let aligned = vec![
+            Some(1.0),
+            Some(2.0),
+            Some(3.0),
+            Some(2.0),
+            None,
+            Some(4.0),
+            Some(5.0),
+            Some(6.0),
+        ];
+
+        let line = rsi(&aligned, 3);
+        let signal = rsi_signal(&aligned, 3, 2);
+
+        assert_eq!(signal, ema(&line, 2));
     }
 }
