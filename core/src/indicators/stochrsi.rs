@@ -1,4 +1,4 @@
-use crate::indicators::rsi::rsi;
+use crate::indicators::rsi::rsi_line;
 use crate::utils::{rolling_max_min, rolling_mean_strict};
 
 pub fn stochrsi(
@@ -14,7 +14,7 @@ pub fn stochrsi(
         return (percent_k, vec![None; len]);
     }
 
-    let rsi_values = rsi(closes, period_rsi);
+    let rsi_values = rsi_line(closes, period_rsi);
     let (rolling_max, rolling_min) = rolling_max_min(&rsi_values, &rsi_values, period_k);
 
     for i in (period_rsi + period_k - 1)..len {

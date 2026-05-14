@@ -1,4 +1,19 @@
+use crate::indicators::ema::ema;
+
 pub fn cci(
+    highs: &[Option<f64>],
+    lows: &[Option<f64>],
+    closes: &[Option<f64>],
+    period: usize,
+    signal_period: usize,
+) -> (Vec<Option<f64>>, Vec<Option<f64>>) {
+    let line = cci_line(highs, lows, closes, period);
+    let signal = ema(&line, signal_period);
+
+    (line, signal)
+}
+
+pub fn cci_line(
     highs: &[Option<f64>],
     lows: &[Option<f64>],
     closes: &[Option<f64>],
@@ -60,6 +75,17 @@ pub fn cci(
     result
 }
 
+pub fn cci_signal(
+    highs: &[Option<f64>],
+    lows: &[Option<f64>],
+    closes: &[Option<f64>],
+    period: usize,
+    signal_period: usize,
+) -> Vec<Option<f64>> {
+    let line = cci_line(highs, lows, closes, period);
+    ema(&line, signal_period)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -73,7 +99,7 @@ mod tests {
             let high = testutils::load_data_nullable(&format!("../data/{}.json", symbol), "h");
             let low = testutils::load_data_nullable(&format!("../data/{}.json", symbol), "l");
             let close = testutils::load_data_nullable(&format!("../data/{}.json", symbol), "c");
-            let result = cci(&high, &low, &close, 20);
+            let (result, signal) = cci(&high, &low, &close, 20, 9);
             let expected = testutils::load_expected::<Option<f64>>(&format!(
                 "../data/expected/cci_{}.json",
                 symbol
@@ -85,6 +111,7 @@ mod tests {
                 "CCI test failed for symbol {}.",
                 symbol
             );
+            assert_eq!(signal, cci_signal(&high, &low, &close, 20, 9));
         }
     }
 
@@ -94,7 +121,7 @@ mod tests {
         let lows = vec![Some(2.0), Some(2.0), None, Some(6.0), Some(8.0)];
         let closes = vec![Some(3.0), Some(4.0), None, Some(9.0), Some(11.0)];
 
-        let result = round_vec(cci(&highs, &lows, &closes, 2), 8);
+        let result = round_vec(cci_line(&highs, &lows, &closes, 2), 8);
 
         assert_eq!(
             result,
@@ -109,5 +136,34 @@ mod tests {
                 8
             )
         );
+    }
+
+    #[test]
+    fn test_cci_signal_follows_base_ema_contract() {
+        let highs = vec![
+            Some(4.0),
+            Some(6.0),
+            None,
+            Some(10.0),
+            Some(12.0),
+            Some(14.0),
+        ];
+        let lows = vec![Some(2.0), Some(2.0), None, Some(6.0), Some(8.0), Some(10.0)];
+        let closes = vec![
+            Some(3.0),
+            Some(4.0),
+            None,
+            Some(9.0),
+            Some(11.0),
+            Some(12.0),
+        ];
+
+        let line = cci_line(&highs, &lows, &closes, 2);
+        let signal = cci_signal(&highs, &lows, &closes, 2, 2);
+        let (composite_line, composite_signal) = cci(&highs, &lows, &closes, 2, 2);
+
+        assert_eq!(signal, ema(&line, 2));
+        assert_eq!(composite_line, line);
+        assert_eq!(composite_signal, signal);
     }
 }
