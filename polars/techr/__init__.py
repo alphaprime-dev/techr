@@ -20,6 +20,7 @@ __all__ = [
     "bband_middle",
     "bband_upper",
     "cci",
+    "cci_line",
     "cci_signal",
     "cmf",
     "co",
@@ -69,6 +70,7 @@ __all__ = [
     "pvo_signal",
     "roc",
     "rsi",
+    "rsi_line",
     "rsi_signal",
     "sma",
     "sonar_line",
@@ -379,6 +381,10 @@ def atr(high: IntoExpr, low: IntoExpr, close: IntoExpr, *, period: int) -> pl.Ex
 
 def cci(high: IntoExpr, low: IntoExpr, close: IntoExpr, *, period: int) -> pl.Expr:
     return _register("cci", [high, low, close], {"period": period})
+
+
+def cci_line(high: IntoExpr, low: IntoExpr, close: IntoExpr, *, period: int) -> pl.Expr:
+    return _register("cci_line", [high, low, close], {"period": period})
 
 
 def cci_signal(
@@ -721,6 +727,10 @@ def roc(close: IntoExpr, *, period: int) -> pl.Expr:
 
 def rsi(expr: IntoExpr, *, period: int) -> pl.Expr:
     return _register("rsi", [expr], {"period": period})
+
+
+def rsi_line(expr: IntoExpr, *, period: int) -> pl.Expr:
+    return _register("rsi_line", [expr], {"period": period})
 
 
 def rsi_signal(expr: IntoExpr, *, period: int, signal_period: int) -> pl.Expr:

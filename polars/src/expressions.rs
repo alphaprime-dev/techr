@@ -495,7 +495,20 @@ fn cci(inputs: &[Series], kwargs: PeriodKwargs) -> PolarsResult<Series> {
     let highs = series_to_f64_vec(&inputs[0])?;
     let lows = series_to_f64_vec(&inputs[1])?;
     let closes = series_to_f64_vec(&inputs[2])?;
-    Ok(option_vec_to_series(core::cci(
+    Ok(option_vec_to_series(core::cci_line(
+        &highs,
+        &lows,
+        &closes,
+        kwargs.period as usize,
+    )))
+}
+
+#[polars_expr(output_type=Float64)]
+fn cci_line(inputs: &[Series], kwargs: PeriodKwargs) -> PolarsResult<Series> {
+    let highs = series_to_f64_vec(&inputs[0])?;
+    let lows = series_to_f64_vec(&inputs[1])?;
+    let closes = series_to_f64_vec(&inputs[2])?;
+    Ok(option_vec_to_series(core::cci_line(
         &highs,
         &lows,
         &closes,
@@ -887,7 +900,16 @@ fn roc(inputs: &[Series], kwargs: PeriodKwargs) -> PolarsResult<Series> {
 #[polars_expr(output_type=Float64)]
 fn rsi(inputs: &[Series], kwargs: PeriodKwargs) -> PolarsResult<Series> {
     let input = series_to_f64_vec(&inputs[0])?;
-    Ok(option_vec_to_series(core::rsi(
+    Ok(option_vec_to_series(core::rsi_line(
+        &input,
+        kwargs.period as usize,
+    )))
+}
+
+#[polars_expr(output_type=Float64)]
+fn rsi_line(inputs: &[Series], kwargs: PeriodKwargs) -> PolarsResult<Series> {
+    let input = series_to_f64_vec(&inputs[0])?;
+    Ok(option_vec_to_series(core::rsi_line(
         &input,
         kwargs.period as usize,
     )))

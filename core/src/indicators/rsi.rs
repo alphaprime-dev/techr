@@ -1,6 +1,17 @@
 use crate::indicators::ema::ema;
 
-pub fn rsi(data: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
+pub fn rsi(
+    data: &[Option<f64>],
+    period: usize,
+    signal_period: usize,
+) -> (Vec<Option<f64>>, Vec<Option<f64>>) {
+    let line = rsi_line(data, period);
+    let signal = ema(&line, signal_period);
+
+    (line, signal)
+}
+
+pub fn rsi_line(data: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
     let mut rsi = vec![None; data.len()];
 
     if data.len() < period || period <= 1 {
@@ -62,7 +73,7 @@ pub fn rsi(data: &[Option<f64>], period: usize) -> Vec<Option<f64>> {
 }
 
 pub fn rsi_signal(data: &[Option<f64>], period: usize, signal_period: usize) -> Vec<Option<f64>> {
-    let line = rsi(data, period);
+    let line = rsi_line(data, period);
     ema(&line, signal_period)
 }
 
@@ -80,7 +91,7 @@ mod tests {
                 .into_iter()
                 .map(Some)
                 .collect::<Vec<_>>();
-            let result = rsi(&input, 14);
+            let (result, signal) = rsi(&input, 14, 9);
             let expected = testutils::load_expected::<Option<f64>>(&format!(
                 "../data/expected/rsi_{}.json",
                 symbol
@@ -92,6 +103,7 @@ mod tests {
                 "RSI test failed for symbol {}.",
                 symbol
             );
+            assert_eq!(signal, rsi_signal(&input, 14, 9));
         }
     }
 
@@ -107,7 +119,7 @@ mod tests {
             Some(5.0),
         ];
 
-        let result = rsi(&aligned, 3);
+        let result = rsi_line(&aligned, 3);
 
         assert_eq!(
             result,
@@ -135,7 +147,7 @@ mod tests {
             Some(4.0),
         ];
 
-        let result = rsi(&aligned, 3);
+        let result = rsi_line(&aligned, 3);
 
         assert_eq!(
             result,
@@ -156,9 +168,12 @@ mod tests {
             Some(6.0),
         ];
 
-        let line = rsi(&aligned, 3);
+        let line = rsi_line(&aligned, 3);
         let signal = rsi_signal(&aligned, 3, 2);
+        let (composite_line, composite_signal) = rsi(&aligned, 3, 2);
 
         assert_eq!(signal, ema(&line, 2));
+        assert_eq!(composite_line, line);
+        assert_eq!(composite_signal, signal);
     }
 }

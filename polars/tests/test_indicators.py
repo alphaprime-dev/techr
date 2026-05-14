@@ -125,6 +125,11 @@ CORE_EXPECTED_CASES: list[tuple[str, SeriesExprBuilder, str]] = [
         "cci",
     ),
     (
+        "cci_line",
+        lambda: ta.cci_line(pl.col("high"), pl.col("low"), pl.col("close"), period=20),
+        "cci",
+    ),
+    (
         "cmf",
         lambda: ta.cmf(
             pl.col("high"),
@@ -391,6 +396,7 @@ CORE_EXPECTED_CASES: list[tuple[str, SeriesExprBuilder, str]] = [
     ),
     ("roc", lambda: ta.roc(pl.col("close"), period=20), "roc"),
     ("rsi", lambda: ta.rsi(pl.col("close"), period=14), "rsi"),
+    ("rsi_line", lambda: ta.rsi_line(pl.col("close"), period=14), "rsi"),
     ("bband_middle", lambda: ta.bband_middle(pl.col("close"), period=20), "sma"),
     (
         "bband_lower",
